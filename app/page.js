@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { alignLines, currentLineIndex } from '@/lib/align';
 import { FEELINGS } from '@/lib/feelings';
 import { LANGS, DEFAULT_LANG, langMeta, t as translate } from '@/lib/i18n';
+import { saveAudioBlob, getAudioBlob, removeAudioBlob } from '@/lib/offline';
 
 const STORAGE_KEY = 'mantra-sangraha-book-v3';
 const OLD_KEY = 'mantra-sangraha-book-v2';
@@ -629,13 +630,14 @@ function ChantMeditation({ t, lang, pick, script, inBook, onClose, onSave }) {
   const [recite, setRecite] = useState(null);
   const [reciteDone, setReciteDone] = useState(false); // recitation lookup finished
   const [reciteErr, setReciteErr] = useState(false);
+  const [reciteUnavail, setReciteUnavail] = useState(false); // archive search down
   const [alts, setAlts] = useState([]);
   const [audioBusy, setAudioBusy] = useState(false);
   const [toast, setToast] = useState('');
   const droneRef = useRef(null);
 
   useEffect(() => {
-    let c = false; setStatus('loading'); setData(null); setMeanings({}); setVi(0); setRecite(null); setAlts([]); setReciteDone(false); setReciteErr(false);
+    let c = false; setStatus('loading'); setData(null); setMeanings({}); setVi(0); setRecite(null); setAlts([]); setReciteDone(false); setReciteErr(false); setReciteUnavail(false);
     (async () => {
       try {
         const r = await fetch(`/api/fetch?mantra=${encodeURIComponent(pick.q)}&script=${encodeURIComponent(script)}`);
@@ -659,8 +661,8 @@ function ChantMeditation({ t, lang, pick, script, inBook, onClose, onSave }) {
               if (!c && ja.ok && ja.url) {
                 const rec = { url: ja.url, label: ja.title, src: ja.sourceUrl, itemId: ja.itemId || null };
                 setRecite(rec); setAlts(ja.alternatives || []); saveAudioPref(pick.q, rec);
-              }
-            } catch {}
+              } else if (!c && ja.error === 'search_failed') setReciteUnavail(true);
+            } catch { if (!c) setReciteUnavail(true); }
           }
           if (!c) setReciteDone(true);
         } else setStatus('error');
@@ -754,7 +756,10 @@ function ChantMeditation({ t, lang, pick, script, inBook, onClose, onSave }) {
               </div>
             </div>
           )}
-          {reciteDone && (!recite || reciteErr) && (
+          {reciteDone && reciteUnavail && !recite && (
+            <div className="audio-none"><i className="ti ti-wifi-off" /> {t('audio_unavailable')}</div>
+          )}
+          {reciteDone && !reciteUnavail && (!recite || reciteErr) && (
             <div className="audio-none"><i className="ti ti-music-off" /> {t('audio_none')}
               {alts.length > 1 && <button className="icon-btn sm" style={{ marginLeft: 8 }} onClick={anotherVoice} disabled={audioBusy} title={t('another_voice')}><i className={`ti ${audioBusy ? 'ti-loader-2 spin' : 'ti-arrows-shuffle'}`} /></button>}
             </div>
@@ -782,6 +787,9 @@ function Reader({ t, book, startItemId, onClose, patchItem, onRemove }) {
   const [alts, setAlts] = useState([]); const [altIdx, setAltIdx] = useState(-1);
   const [showManual, setShowManual] = useState(false);
   const [audioErr, setAudioErr] = useState(false);
+  const [noAudioReason, setNoAudioReason] = useState(''); // '' | 'none' | 'unavailable'
+  const [offUrl, setOffUrl] = useState('');               // object URL of the on-device copy
+  const [offState, setOffState] = useState('none');       // 'none' | 'saving' | 'saved'
   const audioRef = useRef(null); const uploadRef = useRef(null); const uploadBlobRef = useRef({}); const boxRef = useRef(null); const touchX = useRef(null);
 
   useEffect(() => { try { const m = localStorage.getItem('mantra-sangraha-readmode'); if (m === 'book' || m === 'large') setReadMode(m); } catch {} }, []);
@@ -793,7 +801,7 @@ function Reader({ t, book, startItemId, onClose, patchItem, onRemove }) {
   const flat = useMemo(() => (item ? flatLinesOf(item) : []), [item]);
   const audioMeta = item?.audio || {};
   const timings = audioMeta.timings || null;
-  const audioSrc = uploadUrl || audioMeta.url || '';
+  const audioSrc = offUrl || uploadUrl || audioMeta.url || ''; // prefer the offline copy
   const isFile = !!audioSrc;                       // a real mp3 (syncable)
   const hasAudio = !!(audioSrc || audioMeta.youtube);
 
@@ -870,14 +878,37 @@ function Reader({ t, book, startItemId, onClose, patchItem, onRemove }) {
   };
   const findRecitation = async () => {
     if (!item || audioBusy) return;
-    setAudioBusy(true); setStatus(t('searching_recitation'));
+    setAudioBusy(true); setStatus(t('searching_recitation')); setNoAudioReason('');
     try {
       const r = await fetch(`/api/audio?name=${encodeURIComponent(item.name || item.title || '')}`);
       const j = await r.json();
       if (j.ok && j.url) { setAlts(j.alternatives || []); setAltIdx(0); applyAudio(j); }
-      else { patchItem(item.id, { audio: { ...audioMeta, autoTried: true } }); setStatus(t('no_recitation')); }
-    } catch { setStatus(t('no_recitation')); }
+      else if (j.error === 'search_failed') { setNoAudioReason('unavailable'); setStatus(t('audio_unavailable')); } // archive down — don't mark autoTried, retry later
+      else { patchItem(item.id, { audio: { ...audioMeta, autoTried: true } }); setNoAudioReason('none'); setStatus(t('no_recitation')); }
+    } catch { setNoAudioReason('unavailable'); setStatus(t('audio_unavailable')); }
     finally { setAudioBusy(false); }
+  };
+  // Save the current recitation to the device (IndexedDB) for offline playback.
+  const downloadOffline = async () => {
+    if (!item || !audioMeta.url || offState === 'saving') return;
+    setOffState('saving'); setStatus(t('offline_saving'));
+    try {
+      const res = await fetch(audioMeta.url);
+      if (!res.ok) throw new Error('fetch');
+      const blob = await res.blob();
+      await saveAudioBlob(item.id, blob);
+      if (offUrl) URL.revokeObjectURL(offUrl);
+      const u = URL.createObjectURL(blob);
+      setOffUrl(u); setOffState('saved'); setStatus(t('offline_saved'));
+      patchItem(item.id, { audio: { ...audioMeta, offline: true } });
+    } catch { setOffState('none'); setStatus(t('audio_unavailable')); }
+  };
+  const removeOffline = async () => {
+    if (!item) return;
+    await removeAudioBlob(item.id);
+    if (offUrl) URL.revokeObjectURL(offUrl);
+    setOffUrl(''); setOffState('none');
+    patchItem(item.id, { audio: { ...audioMeta, offline: false } });
   };
   // Switch to a different reciter/voice for this mantra. Works even on a reopened
   // saved item: it loads the candidate list on demand, then advances through it.
@@ -917,9 +948,22 @@ function Reader({ t, book, startItemId, onClose, patchItem, onRemove }) {
   // On opening a mantra with no recitation yet, auto-look one up (once).
   useEffect(() => {
     if (!item) return;
-    setAlts([]); setAltIdx(-1); setShowManual(false); setAudioErr(false);
+    setAlts([]); setAltIdx(-1); setShowManual(false); setAudioErr(false); setNoAudioReason('');
     const a = item.audio || {};
     if (!a.url && !a.youtube && !a.autoTried) findRecitation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item?.id]);
+
+  // Load any on-device (offline) copy for this mantra; play from it when present.
+  useEffect(() => {
+    let url = '';
+    setOffUrl(''); setOffState('none');
+    if (item) {
+      getAudioBlob(item.id).then((blob) => {
+        if (blob) { url = URL.createObjectURL(blob); setOffUrl(url); setOffState('saved'); }
+      });
+    }
+    return () => { if (url) URL.revokeObjectURL(url); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id]);
 
@@ -1002,6 +1046,8 @@ function Reader({ t, book, startItemId, onClose, patchItem, onRemove }) {
             {isFile && !timings && (<button className="btn ghost small" onClick={runSync}><i className="ti ti-sparkles" /> {t('autosync')}</button>)}
             {isFile && timings && (<button className={`icon-btn ${follow ? 'on' : ''}`} onClick={toggleFollow} title={t('follow_toggle')} aria-label={t('follow_toggle')}><i className="ti ti-wave-sine" /></button>)}
             {isFile && timings && (<button className="icon-btn" onClick={runSync} title={t('resync')} aria-label={t('resync')}><i className="ti ti-reload" /></button>)}
+            {audioMeta.url && offState === 'saved' && (<button className="icon-btn on" onClick={removeOffline} title={t('offline_saved')} aria-label={t('offline_remove')}><i className="ti ti-cloud-check" /></button>)}
+            {audioMeta.url && offState !== 'saved' && (<button className="icon-btn" onClick={downloadOffline} disabled={offState === 'saving'} title={t('download_offline')} aria-label={t('download_offline')}><i className={`ti ${offState === 'saving' ? 'ti-loader-2 spin' : 'ti-cloud-download'}`} /></button>)}
             <button type="button" className="linkish" onClick={() => setShowManual((s) => !s)}>{t('use_own_audio')}</button>
           </div>
 
@@ -1009,9 +1055,10 @@ function Reader({ t, book, startItemId, onClose, patchItem, onRemove }) {
             : audioMeta.youtube ? (<iframe className="yt" src={`https://www.youtube-nocookie.com/embed/${audioMeta.youtube}`} title="recitation" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />)
             : null}
 
-          {audioErr && (<div className="audio-none"><i className="ti ti-music-off" /> {t('audio_none')}</div>)}
-          {!hasAudio && audioMeta.autoTried && !audioBusy && (<div className="audio-none"><i className="ti ti-music-off" /> {t('audio_none')}</div>)}
-          {audioSrc && !audioErr && audioMeta.attrib?.url && (<a className="src-link" href={audioMeta.attrib.url} target="_blank" rel="noreferrer">{t('recitation')} · Internet Archive</a>)}
+          {audioErr && (<div className="audio-none"><i className="ti ti-music-off" /> {t('audio_none')}{alts.length > 1 && <button className="icon-btn sm" onClick={tryAnother} disabled={audioBusy} title={t('another_voice')} style={{ marginLeft: 8 }}><i className="ti ti-arrows-shuffle" /></button>}</div>)}
+          {!hasAudio && !audioBusy && noAudioReason === 'unavailable' && (<div className="audio-none"><i className="ti ti-wifi-off" /> {t('audio_unavailable')}<button className="icon-btn sm" onClick={findRecitation} title={t('find_recitation')} style={{ marginLeft: 8 }}><i className="ti ti-refresh" /></button></div>)}
+          {!hasAudio && !audioBusy && (noAudioReason === 'none' || (noAudioReason === '' && audioMeta.autoTried)) && (<div className="audio-none"><i className="ti ti-music-off" /> {t('audio_none')}</div>)}
+          {audioSrc && !audioErr && !offUrl && audioMeta.attrib?.url && (<a className="src-link" href={audioMeta.attrib.url} target="_blank" rel="noreferrer">{t('recitation')} · Internet Archive</a>)}
 
           {isFile && timings && timings.length > 0 && follow && (
             <div className="arow sync-nudge">

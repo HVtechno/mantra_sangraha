@@ -171,6 +171,21 @@ texts.
   console "GET not found" was the `<audio>` loading a dead archive url — onError
   now handles it gracefully). Book recitation label localized: shows
   `t('recitation') · Internet Archive` (drops the English recording title).
+- **Offline recitations + outage handling (latest):** `lib/offline.js` is an
+  IndexedDB blob store; the reader has a **"Save for offline"** button
+  (`ti-cloud-download` → `ti-cloud-check`) that downloads the mp3 to the device and
+  plays from the local copy (`audioSrc = offUrl || uploadUrl || audioMeta.url`), so
+  a saved mantra plays with NO internet and survives archive.org outages. Toggle
+  off to free space (`removeAudioBlob`). `find()` distinguishes `search_failed`
+  (archive search errored — transient, NOT cached, NOT marked autoTried) from
+  `no_audio` (genuinely none); the UI now shows a localized **`audio_unavailable`**
+  ("recitations temporarily unavailable — try later", 7 langs) with a retry, vs
+  `audio_none`. archive.org UA is now descriptive (good-citizen, avoids rate-limit
+  lists). NOTE (2026-08-16): archive.org's SEARCH backend had an outage
+  (`[BACKEND_ERROR] … Elasticsearch`) — NOT an IP block (metadata/file delivery
+  still worked; same error seen from unrelated IPs); recovers on their side. Still
+  TODO for full offline: SW caching of same-origin /api responses (text/meaning/
+  search) so browsing works offline too; and "download for offline" in Bhava.
 
 - **Web layout + PWA install (phase-2 start):** the desktop left icon-rail is now a
   **horizontal top header** (`.rail` flex-row, `.shell` column); mobile still uses
