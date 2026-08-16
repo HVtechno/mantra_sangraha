@@ -238,7 +238,7 @@ export default function Home() {
                 <h1>MANTRA SANGRAHA</h1>
                 <p className="sub">{t('tagline')}</p>
                 <div className="searchbar">
-                  <input value={query} placeholder={t('search_ph')} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') doFetch(); }} autoFocus />
+                  <input value={query} placeholder={t('search_ph')} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') doFetch(); }} />
                   <button className="btn" onClick={() => doFetch()} disabled={loading || !query.trim()}>{loading ? t('fetching') : t('fetch')}</button>
                 </div>
                 <div className="suggests">
@@ -318,11 +318,12 @@ function localStorageHas(k) { try { return localStorage.getItem(k) != null; } ca
 // manual "Add to Home Screen"). iOS Safari has no such API, so there we show the
 // share-sheet instructions. Hidden when already installed / not installable.
 function InstallButton({ t }) {
+  const [mounted, setMounted] = useState(false); // avoid SSR/client hydration mismatch
   const [deferred, setDeferred] = useState(null);
   const [installed, setInstalled] = useState(false);
   const [hint, setHint] = useState(false);
-  const isIOS = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
   useEffect(() => {
+    setMounted(true);
     const onBip = (e) => { e.preventDefault(); setDeferred(e); };
     const onInstalled = () => { setInstalled(true); setDeferred(null); };
     window.addEventListener('beforeinstallprompt', onBip);
@@ -332,8 +333,9 @@ function InstallButton({ t }) {
     } catch {}
     return () => { window.removeEventListener('beforeinstallprompt', onBip); window.removeEventListener('appinstalled', onInstalled); };
   }, []);
-  if (installed) return null;
-  if (!deferred && !isIOS) return null; // not installable yet on this browser
+  const isIOS = mounted && typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (!mounted || installed) return null; // render nothing on the server + first client paint
+  if (!deferred && !isIOS) return null;   // not installable yet on this browser
   const onClick = async () => {
     if (deferred) { deferred.prompt(); try { await deferred.userChoice; } catch {} setDeferred(null); return; }
     setHint(true); // iOS: show manual instructions
@@ -437,7 +439,7 @@ function BhavaView({ t, lang, onChant }) {
     <>
       <div className="bhava-head"><div className="dev">॥ भाव ॥</div><h2>{t('bhava_title')}</h2><p>{t('bhava_sub')}</p></div>
       <div className="mood-search">
-        <input value={q} placeholder={t('mood_ph')} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') run(); }} autoFocus />
+        <input value={q} placeholder={t('mood_ph')} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') run(); }} />
         <button className="mood-ai" onClick={() => run()} disabled={loading || !q.trim()} aria-label={t('mood_go')}>
           <i className={`ti ${loading ? 'ti-loader-2 spin' : 'ti-sparkles'}`} />
         </button>

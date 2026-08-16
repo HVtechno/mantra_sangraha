@@ -99,8 +99,14 @@ button { font-family: var(--sans); }
 
 .searchbar { display: flex; gap: 8px; max-width: 560px; margin: 0 auto; }
 .searchbar input {
-  flex: 1; font-family: var(--sans); font-size: 15px; padding: 13px 18px; border-radius: 999px;
+  flex: 1; min-width: 0; font-family: var(--sans); font-size: 16px; padding: 13px 18px; border-radius: 999px;
   border: 0; background: var(--paper-a); color: var(--ink); outline: none; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
+}
+.searchbar .btn { flex: none; }
+/* iOS zooms into any input with font-size < 16px on focus — keep all inputs at
+   16px on phones so focusing never zooms the layout out of view. */
+@media (max-width: 860px) {
+  input, textarea, select, .searchbar input, .mood-search input, .audio input[type="text"], .add-feeling .af-in { font-size: 16px; }
 }
 .btn {
   font-family: var(--sans); font-weight: 600; font-size: 14px; padding: 12px 22px; border: 0; border-radius: 999px;
