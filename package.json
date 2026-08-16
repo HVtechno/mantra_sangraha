@@ -1,0 +1,18 @@
+{
+  "name": "mantra-sangraha",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Ad-free, offline personal book of Hindu mantras & slokas. Search -> fetch clean Devanagari from open public-domain sources -> read offline in a 3D flip-book.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "next": "14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}
