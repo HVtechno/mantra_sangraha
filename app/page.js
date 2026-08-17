@@ -25,6 +25,7 @@ const EXAMPLES = [
   { q: 'Nirvana Shatkam', l: { sa: 'निर्वाण षट्कम्', hi: 'निर्वाण षट्कम्', ta: 'நிர்வாண ஷட்கம்', te: 'నిర్వాణ షట్కం', kn: 'ನಿರ್ವಾಣ ಷಟ್ಕಂ', ml: 'നിർവാണ ഷട്കം' } },
   { q: 'Aigiri Nandini', l: { sa: 'ऐगिरि नन्दिनी', hi: 'ऐगिरि नन्दिनी', ta: 'ஐகிரி நந்தினி', te: 'ఐగిరి నందిని', kn: 'ಐಗಿರಿ ನಂದಿನಿ', ml: 'ഐഗിരി നന്ദിനി' } },
   { q: 'Kanakadhara Stotram', l: { sa: 'कनकधारा स्तोत्रम्', hi: 'कनकधारा स्तोत्रम्', ta: 'கனகதாரா ஸ்தோத்திரம்', te: 'కనకధారా స్తోత్రం', kn: 'ಕನಕಧಾರಾ ಸ್ತೋತ್ರಂ', ml: 'കനകധാരാ സ്തോത്രം' } },
+  { q: 'Sivapuranam', l: { sa: 'शिव पुराणम्', hi: 'शिव पुराणम्', ta: 'சிவ புராணம்', te: 'శివ పురాణం', kn: 'ಶಿವ ಪುರಾಣಂ', ml: 'ശിവ പുരാണം' } },
 ];
 // Audio is never hardcoded — every recitation is discovered on demand from the
 // ad-free archive.org lookup (/api/audio), or pasted/uploaded by the user.

@@ -7,6 +7,7 @@ export const metadata = {
   applicationName: 'Mantra Sangraha',
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, title: 'Mantra Sangraha', statusBarStyle: 'black-translucent' },
+  other: { 'mobile-web-app-capable': 'yes' },
   icons: {
     icon: [{ url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }, { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' }],
     apple: [{ url: '/icons/apple-180.png', sizes: '180x180', type: 'image/png' }],

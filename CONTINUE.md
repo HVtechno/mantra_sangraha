@@ -452,6 +452,58 @@ are cached per mantra/site — after a fix, reload / clear the relevant cache en
   to grow coverage. Because vignanam already has these, this fallback rarely fires
   — it's genuine redundancy for when vignanam is down or lacks a Devanagari text.
   stotranidhi.com was rejected earlier (returned empty to the fetcher — JS/Cloudflare).
+- **Third source (added): `lib/sources/wikisource.js`.** `SOURCES` is now
+  `[vignanam, sanskritdocuments, wikisource]`. This is the GENERIC fallback for
+  texts the stotra sites don't carry (Sivapuranam, regional scriptures): it SEARCHES
+  the Wikisource edition matching the user's script (`editionsFor`), picks the best
+  page (`bestTitle`), fetches its HTML (`action=parse&prop=text`), and runs the same
+  `parseDocument`. Open API, no key; descriptive UA (Wikimedia requires it). Replaces
+  the abandoned "big local content file" idea (couldn't source sacred text
+  accurately; a curated file = maintenance + transcription risk) — instead we bridge
+  to a verbatim public-domain library, matching the app's philosophy.
+  **CONFIRMED LIVE (2026-08-16): silent search does NOT work** — Wikisource search
+  is native-script, so a romanised query ("sivapuranam") can't match the Tamil page
+  "திருவாசகம்/சிவ புராணம்", and the text is Tamil while the user was in English/
+  Devanagari (searched sa/hi). FIX: a curated **`TITLE_MAP`** in the adapter (like
+  sanskritdocuments' SLUG_MAP) mapping romanised name -> {wiki, title, script,
+  name, tradition, deity}. `fetchBySlug` tries the map FIRST (exact page, correct
+  edition — reliable), then best-effort search. Only the POINTER is hardcoded; the
+  verses are fetched verbatim from Wikisource. Seeded with **Sivapuranam** (ta,
+  verified via web search). GROW IT by adding a line per text (find the exact page
+  via a web search for "<name> wikisource"). Assistant can't fetch Wikisource
+  (WebFetch blocks Wikimedia) — verify on the deployed app.
+  KNOWN sub-issues (later): (a) cross-language items store their own script (Tamil),
+  so the app's auto-heal re-fetches them on every language change — wasteful, not
+  broken (returns same content); guard by skipping re-heal for fixed-script items.
+  (b) Tamil texts lack `॥ N ॥` markers → may import as one long page (verse-split
+  refinement later). (c) unmapped texts still fail (search can't bridge romanised) —
+  either add to the map, or later build the "type in native script / tap a
+  suggestion" upgrade.
+- **Fourth/final source (added): `lib/sources/websearch.js` — GENERIC discovery.**
+  `SOURCES = [vignanam, sanskritdocuments, wikisource, websearch]`. When all else
+  misses, it asks a real search engine (SerpAPI, Google engine) for the text,
+  ranks the results (trusted-domain boost, junk/video/commerce dropped, SSRF-guarded
+  via `safeUrl`), then fetches + parses the best pages until one yields verses.
+  This is the answer to "do we hardcode everything?" — NO: a search engine bridges
+  romanised → native-script pages generically. `bestParse` tries every Indic script
+  and keeps the one with the most text, so a Tamil page parses as Tamil even from
+  English/Devanagari mode (the cross-language trap). **DORMANT until env
+  `SERPAPI_KEY` is set** (returns ok:false) — safe to ship without it. Each SerpAPI
+  query is cached (`discover:<q>` in lib/cache) so a search spends at most ONE credit
+  ever (protects the 250/month free tier); the whole result is also cached per slug
+  by fetchMantra. Provider is swappable via the key/URL (Brave's 2000/mo native tier
+  later = same shape). Honest limits: third-party page text quality varies (the
+  PREVIEW gates it; license note says "verify accuracy"); auto-picks the top
+  parseable result (could add a tap-to-pick list later); `require verseCount>=1 &&
+  len>=80` to reject junk single-line pages. Set the key in `.env.local` (gitignored)
+  + Render env; assistant never sees it.
+- **Discoverability pattern:** a text is SUGGESTED (autocomplete + example chips)
+  only if it's in `lib/aliases.js` CATALOG. Wikisource-mapped texts live in the
+  wikisource `TITLE_MAP` (the fetch pointer). So to make one show up as you type AND
+  resolve to a canonical slug, ALSO add an aliases.js CATALOG entry with the SAME
+  slug (done for `sivapuranam`). Per curated text: (1) TITLE_MAP pointer, (2) matching
+  aliases CATALOG entry, (3) optional EXAMPLES chip in page.js. websearch-discovered
+  texts don't autocomplete — user types the name and it's found on the fly.
 - Parser tweak: the leading-invocation split now fires only when the first chunk
   is EXACTLY two danda-units, so Vedic prose (Rudram anuvaka 1) stays whole.
   Locked by a unit test.
