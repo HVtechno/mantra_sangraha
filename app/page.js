@@ -5,6 +5,7 @@ import { alignLines, currentLineIndex } from '@/lib/align';
 import { FEELINGS } from '@/lib/feelings';
 import { LANGS, DEFAULT_LANG, langMeta, t as translate } from '@/lib/i18n';
 import { saveAudioBlob, getAudioBlob, removeAudioBlob } from '@/lib/offline';
+import { resolve as resolveMantra } from '@/lib/aliases';
 
 const STORAGE_KEY = 'mantra-sangraha-book-v3';
 const OLD_KEY = 'mantra-sangraha-book-v2';
@@ -30,6 +31,16 @@ const EXAMPLES = [
 ];
 // Audio is never hardcoded — every recitation is discovered on demand from the
 // ad-free archive.org lookup (/api/audio), or pasted/uploaded by the user.
+
+// --- Suggest / feedback (in-app notification) ------------------------------
+const APP_VERSION = '2';                 // bump alongside sw.js CACHE on deploy
+const REQ_KEY = 'ms-pending-requests';   // mantra requests awaiting the badge
+const CLIENT_KEY = 'ms-client-id';       // anonymous per-device id (not a login)
+function clientId() {
+  try { let id = localStorage.getItem(CLIENT_KEY); if (!id) { id = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem(CLIENT_KEY, id); } return id; } catch { return ''; }
+}
+function loadPending() { try { return JSON.parse(localStorage.getItem(REQ_KEY) || '[]'); } catch { return []; } }
+function savePending(list) { try { localStorage.setItem(REQ_KEY, JSON.stringify(list)); } catch {} }
 const DEFAULT_YT = {};
 
 const GRADS = [
@@ -92,6 +103,9 @@ export default function Home() {
   const [lastReadId, setLastReadId] = useState(null);
   const [chant, setChant] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [pending, setPending] = useState([]);     // mantra requests awaiting a match
+  const [readyReq, setReadyReq] = useState(null);  // { text, name } once one is available
 
   const t = useCallback((k) => translate(lang, k), [lang]);
   const script = langMeta(lang).script;
@@ -131,6 +145,28 @@ export default function Home() {
   }, [book, loaded]);
 
   const chooseLang = (code) => { setLang(code); try { localStorage.setItem(LANG_KEY, code); } catch {} setLangModal(false); };
+
+  // In-app notification: when a mantra the user asked for now exists in the
+  // catalog (because we added it), surface a badge on next open. Matching is
+  // local — no server, no accounts — using the same resolver as search.
+  useEffect(() => {
+    const list = loadPending();
+    setPending(list);
+    for (const p of list) { const rec = resolveMantra(p.text); if (rec) { setReadyReq({ text: p.text, name: rec.name }); break; } }
+  }, [loaded]);
+
+  const onFeedbackSubmitted = (kind, text) => {
+    if (kind !== 'mantra') return;
+    if (resolveMantra(text)) return; // already exists — nothing to wait for
+    const list = [...loadPending().filter((p) => p.text.toLowerCase() !== text.toLowerCase()), { text, ts: Date.now() }];
+    savePending(list); setPending(list);
+  };
+  const dismissReady = () => {
+    if (!readyReq) return;
+    const list = loadPending().filter((p) => p.text.toLowerCase() !== readyReq.text.toLowerCase());
+    savePending(list); setPending(list); setReadyReq(null);
+  };
+  const openReady = () => { if (!readyReq) return; const name = readyReq.name || readyReq.text; setTab('home'); setQuery(name); doFetch(name); dismissReady(); };
 
   // Auto-heal: when the chosen language's script differs from what a book item
   // was stored in, re-fetch that item in the current script (so existing mantras
@@ -241,17 +277,29 @@ export default function Home() {
           <div key={n.key} className={`ri ${tab === n.key ? 'on' : ''}`} onClick={() => onNav(n.key)}><i className={`ti ${n.icon}`} aria-hidden="true" /><span>{n.label}</span></div>
         ))}
         <div className="rail-spacer" />
+        <div className={`ri ${readyReq ? 'alert' : ''}`} onClick={() => setFeedbackOpen(true)} title={t('fb_open')}><i className={`ti ${readyReq ? 'ti-bell-ringing' : 'ti-bell'}`} aria-hidden="true" />{pending.length && !readyReq ? <span className="ri-dot" /> : null}<span>{t('fb_nav')}</span></div>
         <InstallButton t={t} />
         <div className="ri" onClick={() => setLangModal(true)} title={t('change_language')}><i className="ti ti-language" aria-hidden="true" /><span>{langMeta(lang).native}</span></div>
       </nav>
 
       <main className="main">
+        {readyReq && (
+          <div className="req-ready no-print">
+            <i className="ti ti-bell-ringing" />
+            <div className="req-ready-txt"><b>{t('req_ready_title')}</b><span>{readyReq.name || readyReq.text}</span></div>
+            <button className="btn small" onClick={openReady}>{t('req_ready_open')}</button>
+            <button className="icon-btn sm" onClick={dismissReady} aria-label={t('close')}><i className="ti ti-x" /></button>
+          </div>
+        )}
         <div className="view">
           {tab === 'home' && (
             <>
               <section className="hero">
                 <InstallButton t={t} />
-                <button className="globe-btn" onClick={() => setLangModal(true)} aria-label={t('change_language')}><i className="ti ti-language" /> {langMeta(lang).native}</button>
+                <div className="hero-tools">
+                  <button className={`globe-btn icon-only ${readyReq ? 'alert' : ''}`} onClick={() => setFeedbackOpen(true)} aria-label={t('fb_open')} title={t('fb_open')}><i className={`ti ${readyReq ? 'ti-bell-ringing' : 'ti-bell'}`} />{pending.length && !readyReq ? <span className="ri-dot" /> : null}</button>
+                  <button className="globe-btn" onClick={() => setLangModal(true)} aria-label={t('change_language')}><i className="ti ti-language" /> {langMeta(lang).native}</button>
+                </div>
                 <Rays /><Halo />
                 <h1>MANTRA SANGRAHA</h1>
                 <p className="sub">{t('tagline')}</p>
@@ -323,6 +371,7 @@ export default function Home() {
       </nav>
 
       {langModal && <LangModal current={lang} onChoose={chooseLang} onClose={() => setLangModal(false)} firstRun={!loaded || !localStorageHas(LANG_KEY)} />}
+      {feedbackOpen && <FeedbackSheet t={t} lang={lang} script={script} onClose={() => setFeedbackOpen(false)} onSubmitted={onFeedbackSubmitted} />}
       {reader && <Reader t={t} book={book} startItemId={reader.startItemId} onClose={() => setReader(null)} patchItem={patchItem} onRemove={removeFromBook} />}
       {chant && <ChantMeditation t={t} lang={lang} pick={chant} script={script} inBook={inBook(chant.q)} onClose={() => setChant(null)} onSave={saveFromBhava} />}
     </div>
@@ -371,6 +420,77 @@ function InstallButton({ t }) {
         </div>
       )}
     </>
+  );
+}
+
+// Suggest / feedback sheet — one entry point, two intents (request a mantra or
+// share feedback). Posts to /api/feedback. The honeypot input catches bots.
+function FeedbackSheet({ t, lang, script, onClose, onSubmitted }) {
+  const [kind, setKind] = useState('mantra');
+  const [text, setText] = useState('');
+  const [contact, setContact] = useState('');
+  const [hp, setHp] = useState(''); // honeypot — must stay empty for humans
+  const [rating, setRating] = useState(0); // 0 = not rated (feedback only)
+  const [state, setState] = useState(''); // '' | 'sending' | 'error'
+  const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    const v = text.trim();
+    if (!v || state === 'sending') return;
+    setState('sending');
+    try {
+      const r = await fetch('/api/feedback', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, text: v, contact: contact.trim(), rating: kind === 'feedback' ? rating : 0, lang, script, version: APP_VERSION, client: clientId(), website: hp }),
+      });
+      const j = await r.json();
+      if (j.ok) { setDone(true); if (onSubmitted) onSubmitted(kind, v); }
+      else setState('error');
+    } catch { setState('error'); }
+  };
+
+  return (
+    <div className="lang-modal" onClick={onClose}>
+      <div className="fb-card" onClick={(e) => e.stopPropagation()}>
+        {done ? (
+          <div className="fb-done">
+            <div className="fb-check">🙏</div>
+            <h3>{t('fb_thanks')}</h3>
+            <p>{kind === 'mantra' ? t('fb_thanks_mantra') : t('fb_thanks_feedback')}</p>
+            <button className="btn" onClick={onClose}>{t('close')}</button>
+          </div>
+        ) : (
+          <>
+            <h3>{t('fb_title')}</h3>
+            <div className="fb-toggle">
+              <button className={kind === 'mantra' ? 'on' : ''} onClick={() => setKind('mantra')}>{t('fb_kind_mantra')}</button>
+              <button className={kind === 'feedback' ? 'on' : ''} onClick={() => setKind('feedback')}>{t('fb_kind_feedback')}</button>
+            </div>
+            {kind === 'feedback' && (
+              <div className="fb-rate">
+                <span className="fb-rate-label">{t('fb_rate')}</span>
+                <div className="fb-stars">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button key={n} type="button" className={`fb-star ${n <= rating ? 'on' : ''}`} onClick={() => setRating(n === rating ? 0 : n)} aria-label={`${n} / 5`}>
+                      <i className={`ti ${n <= rating ? 'ti-star-filled' : 'ti-star'}`} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <textarea className="fb-text" rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder={kind === 'mantra' ? t('fb_ph_mantra') : t('fb_ph_feedback')} />
+            <input className="fb-contact" value={contact} onChange={(e) => setContact(e.target.value)} placeholder={t('fb_contact_ph')} />
+            <input className="fb-hp" tabIndex={-1} autoComplete="off" value={hp} onChange={(e) => setHp(e.target.value)} aria-hidden="true" />
+            {state === 'error' && <div className="fb-err">{t('fb_error')}</div>}
+            <div className="fb-actions">
+              <button className="btn ghost small" onClick={onClose}>{t('close')}</button>
+              <button className="btn" disabled={!text.trim() || state === 'sending'} onClick={submit}>{state === 'sending' ? t('fb_sending') : t('fb_send')}</button>
+            </div>
+            <p className="fb-note">{t('fb_privacy')}</p>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 

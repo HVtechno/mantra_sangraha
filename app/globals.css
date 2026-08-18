@@ -355,14 +355,114 @@ button { font-family: var(--sans); }
 .toc-row .pg-no { font-family: var(--sans); font-size: 12px; color: #c9a86a; }
 
 /* language picker */
+/* Top-right cluster in the hero: feedback + language, side by side. */
+.hero-tools { position: absolute; top: 12px; right: 12px; z-index: 3; display: flex; gap: 8px; align-items: center; }
 .globe-btn {
-  position: absolute; top: 12px; right: 12px; z-index: 3; border: 1px solid rgba(255,255,255,0.3);
+  position: relative; border: 1px solid rgba(255,255,255,0.3);
   background: rgba(0,0,0,0.2); color: #fff; border-radius: 999px; padding: 6px 12px; font-size: 12px;
-  cursor: pointer; display: inline-flex; align-items: center; gap: 6px; backdrop-filter: blur(4px);
+  cursor: pointer; display: inline-flex; align-items: center; gap: 6px; backdrop-filter: blur(4px); white-space: nowrap;
+}
+.globe-btn.icon-only { padding: 6px 9px; }
+/* Web view keeps Install / Suggest / language in the top header — hide the
+   in-banner copies there. They reappear only on mobile (below), where the header
+   collapses to the bottom tab bar and the banner is the only place for them. */
+.hero .install-btn, .hero .hero-tools { display: none; }
+/* …but on mobile the top header is gone, so surface them in the banner. This
+   block MUST come after the hide-rule above: media queries add no specificity,
+   so source order decides which wins. */
+@media (max-width: 860px) {
+  .hero .install-btn { display: inline-flex; }
+  .hero .hero-tools { display: flex; }
 }
 .lang-modal { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 18px;
   background: radial-gradient(80% 60% at 50% 20%, rgba(58,26,74,0.9), rgba(10,5,24,0.94)); }
 .lang-box { width: min(560px, 96%); background: linear-gradient(#1b0f36, #12082a); border: 1px solid #6b4a1f; border-radius: 20px; padding: 26px 22px; text-align: center; box-shadow: 0 24px 60px var(--shadow); }
+
+/* ---- Suggest / feedback sheet + in-app notification ---- */
+.ri-dot { position: absolute; top: 4px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 6px var(--gold); }
+.rail .ri { position: relative; }
+/* Bell alert: red + shake when a requested mantra is now ready. */
+.globe-btn.alert { border-color: rgba(255,77,77,0.75); background: rgba(120,20,20,0.28); }
+.globe-btn.alert i, .rail .ri.alert i { color: #ff4d4d; display: inline-block; transform-origin: 50% 18%; animation: bell-shake 2s ease-in-out infinite; }
+.rail .ri.alert { color: #ff6b6b; }
+@keyframes bell-shake {
+  0%, 36%, 100% { transform: rotate(0); }
+  4% { transform: rotate(16deg); } 8% { transform: rotate(-14deg); }
+  12% { transform: rotate(11deg); } 16% { transform: rotate(-9deg); }
+  20% { transform: rotate(7deg); } 24% { transform: rotate(-5deg); }
+  28% { transform: rotate(3deg); } 32% { transform: rotate(-1deg); }
+}
+@media (prefers-reduced-motion: reduce) { .globe-btn.alert i, .rail .ri.alert i { animation: none; } }
+.fb-card { width: min(460px, 96%); background: linear-gradient(#1b0f36, #12082a); border: 1px solid #6b4a1f; border-radius: 20px; padding: 22px; box-shadow: 0 24px 60px var(--shadow); }
+.fb-card h3 { font-family: var(--display); color: #fff; font-size: 19px; margin: 0 0 14px; text-align: center; }
+.fb-toggle { display: flex; gap: 6px; background: rgba(255,255,255,0.05); border: 1px solid #4a3a1a; border-radius: 999px; padding: 4px; margin-bottom: 12px; }
+.fb-toggle button { flex: 1; border: 0; background: transparent; color: var(--cream-soft); font-size: 13.5px; font-weight: 600; padding: 8px 10px; border-radius: 999px; cursor: pointer; }
+.fb-toggle button.on { color: #3a1e06; background: linear-gradient(var(--gold), var(--gold-deep)); }
+.fb-text, .fb-contact { width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.06); border: 1px solid #4a3a1a; border-radius: 12px; color: var(--cream); font-size: 16px; padding: 11px 12px; outline: none; font-family: inherit; }
+.fb-text { resize: vertical; min-height: 84px; margin-bottom: 10px; }
+.fb-contact { margin-bottom: 10px; }
+.fb-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.fb-rate { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.fb-rate-label { color: var(--cream-soft); font-size: 13px; }
+.fb-stars { display: inline-flex; gap: 2px; }
+.fb-star { border: 0; background: transparent; cursor: pointer; padding: 2px; font-size: 20px; line-height: 1; color: #6b5a35; }
+.fb-star.on { color: var(--gold); }
+.fb-star:hover { color: var(--gold); }
+.fb-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.fb-note { color: var(--muted); font-size: 11.5px; text-align: center; margin: 12px 0 0; }
+.fb-err { color: #ff9a8a; font-size: 12.5px; margin: 2px 0 8px; }
+.fb-done { text-align: center; padding: 8px 4px; }
+.fb-check { font-size: 40px; }
+.fb-done h3 { margin: 6px 0 6px; }
+.fb-done p { color: var(--cream-soft); font-size: 13.5px; line-height: 1.6; margin: 0 0 16px; }
+.req-ready { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; padding: 11px 14px; border-radius: 14px; background: linear-gradient(90deg, rgba(226,149,31,0.18), rgba(255,207,92,0.10)); border: 1px solid var(--gold-deep); color: var(--cream); }
+.req-ready > i { font-size: 20px; color: var(--gold); }
+.req-ready-txt { display: flex; flex-direction: column; line-height: 1.3; flex: 1; min-width: 0; }
+.req-ready-txt b { font-size: 12px; color: var(--gold); font-weight: 700; letter-spacing: .2px; }
+.req-ready-txt span { font-size: 15px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Admin dashboard (private, /admin) ---- */
+.admin-wrap { max-width: 760px; margin: 0 auto; padding: 28px 16px 60px; color: var(--cream); }
+.admin-gate { max-width: 360px; margin: 12vh auto 0; text-align: center; background: linear-gradient(#1b0f36, #12082a); border: 1px solid #6b4a1f; border-radius: 20px; padding: 28px 22px; }
+.admin-gate h1 { font-family: var(--display); color: var(--gold); font-size: 24px; margin: 0 0 6px; }
+.admin-gate p { color: var(--cream-soft); font-size: 13.5px; margin: 0 0 16px; }
+.admin-gate input { width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.06); border: 1px solid #4a3a1a; border-radius: 12px; color: var(--cream); font-size: 16px; padding: 11px 12px; outline: none; margin-bottom: 12px; }
+.admin-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
+.admin-head h1 { font-family: var(--display); color: var(--gold); font-size: 22px; margin: 0; }
+.admin-actions { display: flex; gap: 8px; }
+.admin-stats { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 18px; }
+.admin-stats .stat { border: 1px solid #4a3a1a; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 8px 14px; cursor: pointer; color: var(--cream-soft); display: flex; flex-direction: column; align-items: center; min-width: 66px; }
+.admin-stats .stat.on { border-color: var(--gold-deep); background: rgba(226,149,31,0.16); color: var(--gold); }
+.admin-stats .stat b { font-size: 20px; color: #fff; }
+.admin-stats .stat span { font-size: 10.5px; }
+.admin-backend { font-size: 11px; color: var(--muted); margin-left: auto; }
+.admin-err { color: #ff9a8a; font-size: 13px; margin: 8px 0; }
+.admin-empty { color: var(--muted); text-align: center; padding: 40px 0; }
+.admin-list { display: flex; flex-direction: column; gap: 10px; }
+.admin-card { border: 1px solid #3a2c14; background: rgba(255,255,255,0.04); border-radius: 14px; padding: 12px 14px; }
+.admin-card.mantra { border-left: 3px solid var(--gold); }
+.admin-card.feedback { border-left: 3px solid #7aa2ff; }
+.admin-card-top { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
+.admin-stars { color: var(--gold); font-size: 13px; letter-spacing: 1px; }
+.admin-stars .dim { color: #4a3a1a; }
+.admin-when { margin-left: auto; }
+.admin-stats .stat.rating { cursor: default; }
+.admin-stats .stat.rating b { color: var(--gold); }
+.admin-card .tag { font-size: 10.5px; font-weight: 700; letter-spacing: .3px; padding: 2px 8px; border-radius: 999px; }
+.admin-card .tag.mantra { color: #3a1e06; background: var(--gold); }
+.admin-card .tag.feedback { color: #06122f; background: #9db8ff; }
+.admin-when { font-size: 11px; color: var(--muted); }
+.admin-text { color: #fff; font-size: 15px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.admin-meta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; font-size: 11px; color: var(--muted); }
+.admin-viewtabs { display: flex; gap: 6px; background: rgba(255,255,255,0.04); border: 1px solid #3a2c14; border-radius: 999px; padding: 4px; margin-bottom: 14px; width: fit-content; }
+.admin-viewtabs button { border: 0; background: transparent; color: var(--cream-soft); font-size: 12.5px; font-weight: 600; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.admin-viewtabs button.on { color: #3a1e06; background: linear-gradient(var(--gold), var(--gold-deep)); }
+.admin-rowbtns { margin-left: auto; display: inline-flex; gap: 6px; }
+.rowbtn { border: 1px solid #4a3a1a; background: rgba(255,255,255,0.05); color: var(--cream-soft); font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px; cursor: pointer; }
+.rowbtn:hover { background: rgba(255,207,92,0.12); }
+.rowbtn:disabled { opacity: 0.5; cursor: default; }
+.rowbtn.danger { border-color: #6b2a2a; color: #ff9a8a; }
+.rowbtn.danger:hover { background: rgba(200,60,60,0.18); }
 .lang-om { font-family: var(--deva); font-size: 34px; color: var(--gold); }
 .lang-box h2 { font-family: var(--display); font-weight: 600; color: #fff; font-size: 22px; margin: 4px 0 4px; }
 .lang-box p { color: var(--muted); font-size: 13px; margin: 0 0 16px; }

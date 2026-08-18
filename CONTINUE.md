@@ -102,6 +102,49 @@ alternatives list was empty until the user acted. Fixes in `app/page.js`:
   RESTARTED to pick up a changed `audioIndex.json` (it's `require`d once). A track
   already saved from before auto-upgrades on next open once the index is live.
 
+**In-app notification + feedback + admin dashboard (2026-08-18):** one "Suggest /
+Feedback" icon (nav rail + hero), two intents behind a toggle — *Request a mantra*
+or *Share feedback*. No accounts anywhere.
+- `POST /api/feedback` (`app/api/feedback/route.js`) stores submissions via
+  `lib/feedbackStore.js`, which uses **Upstash Redis** when
+  `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set, else a local
+  `.data/feedback.json` (dev). Stores only the text + lang/version + a random
+  anonymous device id — NO IPs, NO precise location (user already has Google
+  Analytics for aggregate traffic).
+- Admin dashboard at `/admin` (`app/admin/page.js`), read via
+  `GET /api/admin/feedback` — gated by a single secret `ADMIN_TOKEN` env var
+  (NOT a login; key held in sessionStorage). Lists mantra requests + feedback with
+  counts/filter. `/admin` is unlinked; users never see it.
+- In-app notification (the return channel for mantra requests): unresolved
+  requests are saved locally (`ms-pending-requests`); on each open the app runs
+  them through `aliases.resolve()` and, when the mantra now exists (because we
+  added it), shows a "the mantra you asked for is ready" banner + a dot on the
+  icon. Fully client-side, no backend, works offline.
+- Strings added in all 7 languages (`fb_*`, `req_ready_*`); styles in
+  `app/globals.css` (`.fb-*`, `.req-ready`, `.admin-*`); `.env.example` documents
+  `ADMIN_TOKEN` + the two Upstash vars.
+- TO ACTIVATE IN PROD: set `ADMIN_TOKEN` (required) and the two Upstash vars
+  (for persistence) in Render env. Feedback delivery is dashboard-only — we did
+  NOT wire WhatsApp/Telegram (the dashboard replaces it).
+- Roadmap still open: (2) expand catalog+audio in batches (bootstrap from
+  `lib/catalog.js` sitemap), (3) wrap the PWA as native apps for the stores
+  (Capacitor/TWA, not a rewrite); PRICING to discuss.
+
+**Feedback store fixes + archive/retention (2026-08-18):**
+- Two bugs found while testing on Upstash: (a) reader rejected Upstash's returned
+  shape — `coerceRecord()` now accepts object / JSON string / double-encoded; and
+  (b) Next was caching the Upstash `fetch` by request body, replaying a stale
+  empty result — fixed with `cache:'no-store'` on every `redis()` call. (Upstash
+  free tier is real: 256MB / 500K cmds/mo — plenty.)
+- Archive + retention added. `lib/feedbackStore.js` now keeps an active list
+  (`ms:feedback`) and an archive list (`ms:feedback:archive`) with
+  `archiveItem/restoreItem/deleteItem/pruneOldFeedback/counts`. The admin GET
+  auto-runs `pruneOldFeedback(30)` (moves FEEDBACK >30 days to archive; mantra
+  requests are left for manual archiving once added). Admin POST does
+  archive/restore/delete. Dashboard (`/admin`) has an Active/Archived toggle and
+  per-row Archive (or Restore) + Delete buttons. Verified end-to-end on the file
+  backend.
+
 **PWA auto-update (2026-08-18):** updates used to need ~4 hard refreshes because
 the old service worker kept control until the browser happened to notice a new
 one. Fixed: `public/sw.js` bumped to `ms-shell-v2` (network-first strategy

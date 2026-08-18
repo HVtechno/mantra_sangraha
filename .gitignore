@@ -26,5 +26,8 @@ yarn-error.log*
 # server-side fetch cache
 /.cache/
 
+# local feedback store (file fallback for dev)
+/.data/
+
 # vercel
 .vercel

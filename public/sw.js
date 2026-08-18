@@ -7,7 +7,7 @@
 // the file byte-different, so the browser re-installs this worker, we skipWaiting
 // + claim immediately, and the page (which listens for 'controllerchange') reloads
 // once to pick up the new build — no more repeated hard refreshes.
-const CACHE = 'ms-shell-v2';
+const CACHE = 'ms-shell-v3';
 const SHELL = ['/'];
 
 // Let the page tell a waiting worker to activate now.
