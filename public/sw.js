@@ -2,8 +2,16 @@
 // basic offline shell. Kept deliberately conservative: network-first, and we
 // only cache the app shell + static assets (never API responses or the external
 // recitation/font requests), so live data stays fresh.
-const CACHE = 'ms-shell-v1';
+//
+// UPDATES: bump CACHE on every deploy (e.g. v2 -> v3). Changing this string makes
+// the file byte-different, so the browser re-installs this worker, we skipWaiting
+// + claim immediately, and the page (which listens for 'controllerchange') reloads
+// once to pick up the new build — no more repeated hard refreshes.
+const CACHE = 'ms-shell-v2';
 const SHELL = ['/'];
+
+// Let the page tell a waiting worker to activate now.
+self.addEventListener('message', (e) => { if (e.data === 'SKIP_WAITING') self.skipWaiting(); });
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

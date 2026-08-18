@@ -1,0 +1,5 @@
+{
+  "_comment": "Pin the EXACT archive.org recording for a mantra when auto-search picks the wrong one (e.g. a discourse instead of a chant). Key = the mantra's slug (see lib/aliases.js). Value = an archive.org item id ('BhajaGovindam_469'), a details/download URL (https://archive.org/details/BhajaGovindam_469), or a direct .mp3 URL. Pins ALWAYS win and are re-resolved on every build. After editing, just re-run: node scripts/build-audio-index.cjs — pinned slugs rebuild even if already present. Lines starting with _ are ignored.",
+  "bhaja-govindam-moha-mudagaram": "BhajaGovindam_469",
+  "hanuman-chalisa": "HanumanChalisaMSSubbulakshmiwww.Mp3MaD.Com"
+}

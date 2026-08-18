@@ -257,6 +257,9 @@ button { font-family: var(--sans); }
 .icon-btn.on { background: linear-gradient(var(--gold), var(--gold-deep)); color: #3a1e06; border-color: var(--gold-deep); }
 .icon-btn { border: 1px solid #4a3a1a; background: rgba(255, 255, 255, 0.06); color: var(--cream-soft); border-radius: 999px; width: 38px; height: 38px; font-size: 16px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .icon-btn.wide { width: auto; padding: 0 13px; gap: 6px; }
+/* "another voice" shuffle + how-many-recitations counter */
+.voice-switch { display: inline-flex; align-items: center; gap: 4px; }
+.voice-count { font-size: 11px; font-weight: 700; letter-spacing: .3px; color: var(--gold); background: rgba(212, 160, 60, 0.14); border: 1px solid #4a3a1a; border-radius: 999px; padding: 1px 7px; line-height: 1.6; min-width: 30px; text-align: center; }
 .icon-btn.danger { border-color: #6b2a2a; color: #ff9a8a; }
 .icon-btn.danger:hover { background: rgba(200, 60, 60, 0.18); }
 

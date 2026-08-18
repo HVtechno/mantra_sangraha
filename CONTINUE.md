@@ -3,8 +3,115 @@
 A handoff so any new session can pick up exactly where we left off. Read this
 top-to-bottom, then use the **Paste-this prompt** at the very bottom to restart.
 
-Last updated: 2026-08-16 (full-site search resolver + ad-free archive.org audio
-with karaoke + reader audio UX overhaul shipped).
+Last updated: 2026-08-17 (pre-built audio URL index added — kills the
+"recitations temporarily unavailable" errors by removing the live archive.org
+search from the request path).
+
+---
+
+## LATEST (2026-08-17) — Pre-built audio URL index
+
+**Problem it fixes:** the "recitations temporarily unavailable" message that kept
+appearing (50+ times in a session). Root cause was the *server-side* archive.org
+search (`advancedsearch.php`) returning `[BACKEND_ERROR] Invalid or no response
+from Elasticsearch` and rate-limiting our datacenter (Render) IP. Playback itself
+was never the problem — that streams the mp3 from archive's file CDN client-side
+and is reliable.
+
+**The fix (chosen over bulk-downloading MP3s):** we do NOT rehost anyone's
+recording (copyright + repo bloat). Instead we pre-resolve, once, a tiny JSON map
+of `slug -> [ {url,title,sourceUrl,itemId}, … ]` and ship it with the app. At
+runtime `/api/audio?slug=…` returns those URLs instantly with **no live search**;
+live search stays only as a fallback for slugs not yet in the index.
+
+Files:
+- `lib/audioIndex.json` — the map. Committed as `{}` placeholder until built.
+- `lib/audioIndex.js` — runtime loader; `getIndexed(slug)` → feeds or null.
+- `app/api/audio/route.js` — checks `getIndexed(slug)` FIRST, then falls back to
+  live `find(name)` / `findItem(item)`. New `slug` query param.
+- `scripts/build-audio-index.cjs` — the builder. RUN IT LOCALLY (residential IP),
+  not on the server: `node scripts/build-audio-index.cjs`. It's slow on purpose
+  (2.5s between mantras + retry/backoff), resumable (writes after each, skips
+  ones already present — re-run if it stalls), and stores a couple of alternate
+  reciter feeds per mantra so "another voice" works offline-of-search too.
+- `app/page.js` — Reader `findRecitation`/`tryAnother` and Bhava
+  `ChantMeditation`/`anotherVoice` now pass `&slug=…` and, when an alternative
+  already carries a `url` (index feed), switch to it instantly with no extra API
+  call.
+
+**To activate:** run the builder locally → it fills `lib/audioIndex.json` → commit
+that JSON + these files → deploy. The app then serves recitation URLs without any
+live search. Unindexed mantras still fall back to live search as before.
+
+**Name-mismatch fix (2026-08-17, second pass):** first run resolved 24/49; the
+other 25 came up "none" because archive.org files them under different
+spellings/sub-names (Totakashtakam → "thotakashtakam"; Mahishasura Mardini →
+"Aigiri Nandini"). Fix: the builder now tries, per mantra, its NAME → its
+parenthetical sub-name(s) → its catalog `aliases` (which already carry the
+opening words, e.g. "angam hare", "namami shamishana" — how most recitations are
+titled), first hit wins. Also enriched a few `aliases` lists in `lib/aliases.js`
+with archive spellings (thotakashtakam, ardhanareeswara, thiruvasagam,
+bilwashtakam, mahamrityunjaya mantra, …). Since "none" entries are stored as `[]`
+and re-tried on the next run, the user just RE-RUNS `node
+scripts/build-audio-index.cjs` — only the 25 empties retry, now with all the
+fallback queries. Growing the catalog past 49 later is the same pattern: add the
+entry + good aliases, re-run.
+
+**Quality / wrong-pick fix (2026-08-17, third pass):** search finds items *named*
+after a mantra but can't tell a chant from a same-named discourse — Bhaja Govindam
+resolved to Swami Tattvavidananda's multi-day *lecture* instead of the clean
+chant. Two causes, both fixed:
+1. `lib/audioSearch.js` — `find()` used to pick purely by track-filename match and
+   DISCARD the doc-level score once it began resolving, so the discourse penalty
+   stopped mattering. Now it resolves the top 6, then chooses: real track matches
+   (filename that IS the mantra) first, and among those the highest DOC score —
+   which keeps the `BAD` lecture/discourse penalty (bumped -14 → -30) in play. The
+   search window widened 20 → 40 rows so cleaner-but-less-downloaded recitations
+   surface.
+2. `lib/audioOverrides.json` (NEW) — an authoritative pin map, `slug -> archive
+   item id / details|download URL / direct .mp3 URL`. Pins ALWAYS win and are
+   re-resolved every build (they bypass the "skip if present" rule). Bhaja
+   Govindam is pre-pinned to `BhajaGovindam_469`. This is the reliable escape
+   hatch: whenever a pick is wrong, add one line to that file and re-run — no code
+   change. Builder (`scripts/build-audio-index.cjs`) resolves pins first via
+   `resolveOverride()`.
+
+**Honest status of the 43:** they're name-correct but NOT audited for type — some
+may be a discourse/commentary/single-verse rather than the ideal full chant. The
+audit is: play each, and for any wrong one, pin it in `audioOverrides.json`.
+
+**Reader audio-refresh + voice counter (2026-08-17, fourth pass):** after pinning
+Bhaja Govindam, the app still played the old discourse and "another voice" said
+"No other recitation found". Cause: the reader persists the recitation in the
+book item's `audio` (localStorage) and, on open, only auto-looked-up when there
+was NO url — so a previously auto-saved track (the discourse) stuck, and the
+alternatives list was empty until the user acted. Fixes in `app/page.js`:
+- On opening a mantra it now ALWAYS calls `/api/audio?slug=` to (a) populate the
+  alternatives list so "another voice" works immediately, and (b) quietly UPGRADE
+  a stale *auto-picked* archive track to the index's current preferred feed
+  (so pins/better picks take effect). It will NOT override a user's own pasted/
+  uploaded audio or a voice they deliberately switched to — `applyAudio` now
+  stamps `userPicked` (true only from the shuffle button), and the upgrade skips
+  anything `userPicked`, `youtube`, or `offline`.
+- The shuffle button now shows a counter (e.g. `1/2`) and only appears when there
+  really is more than one recitation — so users can see how many voices exist
+  instead of guessing. Spinner already shows while switching. CSS: `.voice-switch`
+  / `.voice-count` in `app/globals.css`.
+- IMPORTANT for testing: this needs the rebuilt `audioIndex.json` DEPLOYED and a
+  hard refresh (the PWA service worker caches the shell). A dev server must be
+  RESTARTED to pick up a changed `audioIndex.json` (it's `require`d once). A track
+  already saved from before auto-upgrades on next open once the index is live.
+
+**PWA auto-update (2026-08-18):** updates used to need ~4 hard refreshes because
+the old service worker kept control until the browser happened to notice a new
+one. Fixed: `public/sw.js` bumped to `ms-shell-v2` (network-first strategy
+unchanged) + a `SKIP_WAITING` message handler; and `app/page.js`'s SW
+registration now calls `reg.update()` whenever the app regains focus and reloads
+ONCE on `controllerchange` (guarded by `hadController` so it doesn't reload on the
+first-ever install). Net effect: a normal reopen picks up new builds.
+**DEPLOY RULE: bump the `CACHE` string in `public/sw.js` (v2 → v3 → …) on every
+deploy** — that byte change is what makes the browser re-install the worker and
+trigger the one-time reload.
 
 ---
 

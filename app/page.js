@@ -26,6 +26,7 @@ const EXAMPLES = [
   { q: 'Aigiri Nandini', l: { sa: 'ऐगिरि नन्दिनी', hi: 'ऐगिरि नन्दिनी', ta: 'ஐகிரி நந்தினி', te: 'ఐగిరి నందిని', kn: 'ಐಗಿರಿ ನಂದಿನಿ', ml: 'ഐഗിരി നന്ദിനി' } },
   { q: 'Kanakadhara Stotram', l: { sa: 'कनकधारा स्तोत्रम्', hi: 'कनकधारा स्तोत्रम्', ta: 'கனகதாரா ஸ்தோத்திரம்', te: 'కనకధారా స్తోత్రం', kn: 'ಕನಕಧಾರಾ ಸ್ತೋತ್ರಂ', ml: 'കനകധാരാ സ്തോത്രം' } },
   { q: 'Sivapuranam', l: { sa: 'शिव पुराणम्', hi: 'शिव पुराणम्', ta: 'சிவ புராணம்', te: 'శివ పురాణం', kn: 'ಶಿವ ಪುರಾಣಂ', ml: 'ശിവ പുരാണം' } },
+  { q: 'Hanuman Chalisa', l: { sa: 'हनुमान चालीसा', hi: 'हनुमान चालीसा', ta: 'ஹனுமான் சாலீசா', te: 'హనుమాన్ చాలీసా', kn: 'ಹನುಮಾನ್ ಚಾಲೀಸಾ', ml: 'ഹനുമാൻ ചാലീസ' } },
 ];
 // Audio is never hardcoded — every recitation is discovered on demand from the
 // ad-free archive.org lookup (/api/audio), or pasted/uploaded by the user.
@@ -95,8 +96,23 @@ export default function Home() {
   const t = useCallback((k) => translate(lang, k), [lang]);
   const script = langMeta(lang).script;
 
-  // Register the service worker (enables PWA install + offline shell).
-  useEffect(() => { if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {}); }, []);
+  // Register the service worker (enables PWA install + offline shell) and keep it
+  // fresh: check for a new version whenever the app regains focus, and when a new
+  // worker takes control, reload ONCE so the new build lands without the user
+  // having to hard-refresh several times. The `hadController` guard prevents a
+  // reload on the very first install (when there was no controller yet).
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    const hadController = !!navigator.serviceWorker.controller;
+    let refreshing = false;
+    const onCtrl = () => { if (!hadController || refreshing) return; refreshing = true; window.location.reload(); };
+    navigator.serviceWorker.addEventListener('controllerchange', onCtrl);
+    let reg = null;
+    navigator.serviceWorker.register('/sw.js').then((r) => { reg = r; if (r.update) r.update(); }).catch(() => {});
+    const onVis = () => { if (document.visibilityState === 'visible' && reg && reg.update) reg.update(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { navigator.serviceWorker.removeEventListener('controllerchange', onCtrl); document.removeEventListener('visibilitychange', onVis); };
+  }, []);
 
   useEffect(() => {
     try {
@@ -657,7 +673,7 @@ function ChantMeditation({ t, lang, pick, script, inBook, onClose, onSave }) {
           if (pref && pref.url) { if (!c) setRecite(pref); }
           else {
             try {
-              const ra = await fetch(`/api/audio?name=${encodeURIComponent(j.name || j.title || pick.name || '')}`);
+              const ra = await fetch(`/api/audio?slug=${encodeURIComponent(j.id || pick.q)}&name=${encodeURIComponent(j.name || j.title || pick.name || '')}`);
               const ja = await ra.json();
               if (!c && ja.ok && ja.url) {
                 const rec = { url: ja.url, label: ja.title, src: ja.sourceUrl, itemId: ja.itemId || null };
@@ -678,17 +694,23 @@ function ChantMeditation({ t, lang, pick, script, inBook, onClose, onSave }) {
     setAudioBusy(true); setReciteErr(false);
     const nm = (data && (data.name || data.title)) || pick.name || '';
     try {
+      const sl = (data && data.id) || pick.q;
       let list = alts;
       if (!list.length) {
-        const r = await fetch(`/api/audio?name=${encodeURIComponent(nm)}`);
+        const r = await fetch(`/api/audio?slug=${encodeURIComponent(sl)}&name=${encodeURIComponent(nm)}`);
         const j = await r.json(); list = (j.ok && j.alternatives) ? j.alternatives : []; setAlts(list);
       }
       if (list.length < 2) { setAudioBusy(false); return; }
       const curIdx = recite && recite.itemId ? list.findIndex((a) => a.itemId === recite.itemId) : -1;
       const next = ((curIdx < 0 ? 0 : curIdx) + 1) % list.length;
-      const rr = await fetch(`/api/audio?item=${encodeURIComponent(list[next].itemId)}&name=${encodeURIComponent(nm)}`);
-      const jj = await rr.json();
-      if (jj.ok && jj.url) { const rec = { url: jj.url, label: jj.title, src: jj.sourceUrl, itemId: jj.itemId || null }; setRecite(rec); saveAudioPref(pick.q, rec); }
+      const cand = list[next];
+      // Index feeds already carry the resolved url — switch instantly, no search.
+      if (cand.url) { const rec = { url: cand.url, label: cand.title, src: cand.sourceUrl, itemId: cand.itemId || null }; setRecite(rec); saveAudioPref(pick.q, rec); }
+      else {
+        const rr = await fetch(`/api/audio?item=${encodeURIComponent(cand.itemId)}&name=${encodeURIComponent(nm)}`);
+        const jj = await rr.json();
+        if (jj.ok && jj.url) { const rec = { url: jj.url, label: jj.title, src: jj.sourceUrl, itemId: jj.itemId || null }; setRecite(rec); saveAudioPref(pick.q, rec); }
+      }
     } catch {}
     finally { setAudioBusy(false); }
   };
@@ -867,12 +889,12 @@ function Reader({ t, book, startItemId, onClose, patchItem, onRemove }) {
 
   // Ad-free recitation lookup (archive.org). Fills the CC-audio URL so it plays
   // AND can be karaoke-synced. Manual paste/upload always override this.
-  const applyAudio = (j) => {
+  const applyAudio = (j, opts = {}) => {
     setUploadUrl(''); setAudioErr(false);
     patchItem(item.id, {
       audio: {
         ...audioMeta, url: j.url, youtube: '', timings: null, method: null, lineShift: 0, autoTried: true,
-        itemId: j.itemId || null, attrib: { label: j.title || 'Recitation', url: j.sourceUrl },
+        itemId: j.itemId || null, userPicked: !!opts.userPicked, attrib: { label: j.title || 'Recitation', url: j.sourceUrl },
       },
     });
     setStatus(t('recitation_found'));
@@ -881,7 +903,7 @@ function Reader({ t, book, startItemId, onClose, patchItem, onRemove }) {
     if (!item || audioBusy) return;
     setAudioBusy(true); setStatus(t('searching_recitation')); setNoAudioReason('');
     try {
-      const r = await fetch(`/api/audio?name=${encodeURIComponent(item.name || item.title || '')}`);
+      const r = await fetch(`/api/audio?slug=${encodeURIComponent(item.id)}&name=${encodeURIComponent(item.name || item.title || '')}`);
       const j = await r.json();
       if (j.ok && j.url) { setAlts(j.alternatives || []); setAltIdx(0); applyAudio(j); }
       else if (j.error === 'search_failed') { setNoAudioReason('unavailable'); setStatus(t('audio_unavailable')); } // archive down — don't mark autoTried, retry later
@@ -920,7 +942,7 @@ function Reader({ t, book, startItemId, onClose, patchItem, onRemove }) {
     try {
       let list = alts;
       if (!list.length) {
-        const r = await fetch(`/api/audio?name=${encodeURIComponent(item.name || item.title || '')}`);
+        const r = await fetch(`/api/audio?slug=${encodeURIComponent(item.id)}&name=${encodeURIComponent(item.name || item.title || '')}`);
         const j = await r.json();
         list = (j.ok && j.alternatives) ? j.alternatives : [];
         setAlts(list);
@@ -929,9 +951,14 @@ function Reader({ t, book, startItemId, onClose, patchItem, onRemove }) {
       // start from the currently-playing item if we can locate it, else from the top
       const curIdx = audioMeta.itemId ? list.findIndex((a) => a.itemId === audioMeta.itemId) : altIdx;
       const next = ((curIdx < 0 ? 0 : curIdx) + 1) % list.length; setAltIdx(next);
-      const rr = await fetch(`/api/audio?item=${encodeURIComponent(list[next].itemId)}&name=${encodeURIComponent(item.name || item.title || '')}`);
-      const jj = await rr.json();
-      if (jj.ok && jj.url) applyAudio(jj); else setStatus(t('no_recitation'));
+      const cand = list[next];
+      // Index feeds already carry the resolved url — switch instantly, no search.
+      if (cand.url) { applyAudio(cand, { userPicked: true }); }
+      else {
+        const rr = await fetch(`/api/audio?item=${encodeURIComponent(cand.itemId)}&name=${encodeURIComponent(item.name || item.title || '')}`);
+        const jj = await rr.json();
+        if (jj.ok && jj.url) applyAudio(jj, { userPicked: true }); else setStatus(t('no_recitation'));
+      }
     } catch { setStatus(t('no_recitation')); }
     finally { setAudioBusy(false); }
   };
@@ -946,12 +973,29 @@ function Reader({ t, book, startItemId, onClose, patchItem, onRemove }) {
     else { patchItem(item.id, { audio: { ...audioMeta, url: v, youtube: '', attrib: null } }); }
   };
 
-  // On opening a mantra with no recitation yet, auto-look one up (once).
+  // On opening a mantra: (1) if it has no recitation yet, auto-look one up; else
+  // (2) always refresh the list of available recitations so "another voice" knows
+  // how many there are, and quietly upgrade a stale AUTO-picked archive track to
+  // the index's current preferred feed (so pins / better picks take effect) —
+  // without disturbing a user's own pasted/uploaded audio or a voice they picked.
   useEffect(() => {
     if (!item) return;
     setAlts([]); setAltIdx(-1); setShowManual(false); setAudioErr(false); setNoAudioReason('');
     const a = item.audio || {};
-    if (!a.url && !a.youtube && !a.autoTried) findRecitation();
+    if (!a.url && !a.youtube && !a.autoTried) { findRecitation(); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`/api/audio?slug=${encodeURIComponent(item.id)}&name=${encodeURIComponent(item.name || item.title || '')}`);
+        const j = await r.json();
+        if (cancelled || !j || !j.ok) return;
+        if (Array.isArray(j.alternatives)) setAlts(j.alternatives);
+        // Upgrade only a curated/indexed feed over an auto-picked archive track.
+        const replaceable = !!a.itemId && !a.youtube && !a.offline && !a.userPicked;
+        if (j.indexed && j.url && replaceable && a.url !== j.url) applyAudio(j);
+      } catch { /* offline / not deployed yet — leave saved track as-is */ }
+    })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id]);
 
@@ -1043,7 +1087,12 @@ function Reader({ t, book, startItemId, onClose, patchItem, onRemove }) {
           <div className="arow controls">
             {!hasAudio && (<button className="btn small" onClick={findRecitation} disabled={audioBusy}><i className={`ti ${audioBusy ? 'ti-loader-2 spin' : 'ti-broadcast'}`} /> {t('find_recitation')}</button>)}
             {hasAudio && (<span className="saved-pill"><i className="ti ti-bookmark-filled" /> {t('saved_recitation')}</span>)}
-            {isFile && (<button className="icon-btn" onClick={tryAnother} disabled={audioBusy} title={t('another_voice')} aria-label={t('another_voice')}><i className={`ti ${audioBusy ? 'ti-loader-2 spin' : 'ti-arrows-shuffle'}`} /></button>)}
+            {isFile && alts.length > 1 && (
+              <span className="voice-switch">
+                <button className="icon-btn" onClick={tryAnother} disabled={audioBusy} title={t('another_voice')} aria-label={t('another_voice')}><i className={`ti ${audioBusy ? 'ti-loader-2 spin' : 'ti-arrows-shuffle'}`} /></button>
+                <span className="voice-count" title={`${alts.length} ${t('recitation')}`}>{(() => { const p = audioMeta.itemId ? alts.findIndex((x) => x.itemId === audioMeta.itemId) : -1; return `${p < 0 ? 1 : p + 1}/${alts.length}`; })()}</span>
+              </span>
+            )}
             {isFile && !timings && (<button className="btn ghost small" onClick={runSync}><i className="ti ti-sparkles" /> {t('autosync')}</button>)}
             {isFile && timings && (<button className={`icon-btn ${follow ? 'on' : ''}`} onClick={toggleFollow} title={t('follow_toggle')} aria-label={t('follow_toggle')}><i className="ti ti-wave-sine" /></button>)}
             {isFile && timings && (<button className="icon-btn" onClick={runSync} title={t('resync')} aria-label={t('resync')}><i className="ti ti-reload" /></button>)}
