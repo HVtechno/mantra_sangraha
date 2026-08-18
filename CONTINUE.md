@@ -130,6 +130,20 @@ or *Share feedback*. No accounts anywhere.
   `lib/catalog.js` sitemap), (3) wrap the PWA as native apps for the stores
   (Capacitor/TWA, not a rewrite); PRICING to discuss.
 
+**Catalog expansion — batch 1 (2026-08-18):** grew `lib/aliases.js` CATALOG from
+50 → 72 with verified vignanam slugs (harvested via site-scoped web search, so
+slugs are real) across Ganesha, Venkateswara/Krishna, Rama/Hanuman, Shiva (more),
+Devi/Lakshmi (more), Subramanya, Surya/Navagraha, Dattatreya. Each has deity +
+incipit aliases (e.g. "he swaminatha", "jatadhara pandurangam", "kausalya supraja
+rama"). Added 2 home-screen example chips (Venkateswara Suprabhatam, Nava Graha
+Stotram). NOTE: text is already reachable site-wide via the sitemap resolver; the
+point of CATALOG growth is AUDIO — the builder only walks CATALOG. So after this,
+RUN `node scripts/build-audio-index.cjs` to resolve recitations for the ~22 new
+slugs, pin any wrong picks in `audioOverrides.json`, commit `lib/audioIndex.json`
++ `aliases.js` + `page.js`, deploy (bump sw). Pre-existing harmless dup: slug
+`sri-suktam` appears twice. Next batches: same pattern — search slugs, add
+entries, rebuild audio.
+
 **Feedback store fixes + archive/retention (2026-08-18):**
 - Two bugs found while testing on Upstash: (a) reader rejected Upstash's returned
   shape — `coerceRecord()` now accepts object / JSON string / double-encoded; and

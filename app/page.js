@@ -28,6 +28,8 @@ const EXAMPLES = [
   { q: 'Kanakadhara Stotram', l: { sa: 'कनकधारा स्तोत्रम्', hi: 'कनकधारा स्तोत्रम्', ta: 'கனகதாரா ஸ்தோத்திரம்', te: 'కనకధారా స్తోత్రం', kn: 'ಕನಕಧಾರಾ ಸ್ತೋತ್ರಂ', ml: 'കനകധാരാ സ്തോത്രം' } },
   { q: 'Sivapuranam', l: { sa: 'शिव पुराणम्', hi: 'शिव पुराणम्', ta: 'சிவ புராணம்', te: 'శివ పురాణం', kn: 'ಶಿವ ಪುರಾಣಂ', ml: 'ശിവ പുരാണം' } },
   { q: 'Hanuman Chalisa', l: { sa: 'हनुमान चालीसा', hi: 'हनुमान चालीसा', ta: 'ஹனுமான் சாலீசா', te: 'హనుమాన్ చాలీసా', kn: 'ಹನುಮಾನ್ ಚಾಲೀಸಾ', ml: 'ഹനുമാൻ ചാലീസ' } },
+  { q: 'Venkateswara Suprabhatam', l: { sa: 'वेङ्कटेश्वर सुप्रभातम्', hi: 'वेंकटेश्वर सुप्रभातम्', ta: 'வெங்கடேஸ்வர ஸுப்ரபாதம்', te: 'వేంకటేశ్వర సుప్రభాతం', kn: 'ವೇಂಕಟೇಶ್ವರ ಸುಪ್ರಭಾತಂ', ml: 'വേങ്കടേശ്വര സുപ്രഭാതം' } },
+  { q: 'Nava Graha Stotram', l: { sa: 'नवग्रह स्तोत्रम्', hi: 'नवग्रह स्तोत्रम्', ta: 'நவகிரக ஸ்தோத்திரம்', te: 'నవగ్రహ స్తోత్రం', kn: 'ನವಗ್ರಹ ಸ್ತೋತ್ರಂ', ml: 'നവഗ്രഹ സ്തോത്രം' } },
 ];
 // Audio is never hardcoded — every recitation is discovered on demand from the
 // ad-free archive.org lookup (/api/audio), or pasted/uploaded by the user.
