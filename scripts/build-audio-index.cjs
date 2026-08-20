@@ -111,20 +111,32 @@ function queriesFor(rec) {
     if (!ov && index[rec.slug] && index[rec.slug].length) { console.log(`[${i}/${items.length}] skip ${rec.slug} (have ${index[rec.slug].length})`); continue; }
     process.stdout.write(`[${i}/${items.length}] ${rec.name}${ov ? ' (pinned)' : ''} … `);
 
-    // 1) A pinned override wins outright.
+    // 1) A pinned override wins outright. The value may be a single pin or an
+    //    ARRAY of pins — each becomes a feed, in order (so "another voice" cycles
+    //    through exactly the tracks you listed).
     if (ov) {
-      const forced = await resolveOverride(ov, rec.name);
-      if (forced) {
-        const prior = (index[rec.slug] || []).filter((f) => f.itemId !== forced.itemId);
-        index[rec.slug] = [forced, ...prior].slice(0, 1 + ALT_FEEDS);
-        added++;
-        console.log(`OK pinned: ${forced.title}`);
-        fs.writeFileSync(OUT, JSON.stringify(index));
+      const pins = Array.isArray(ov) ? ov : [ov];
+      const feeds = [];
+      for (const p of pins) {
+        const f = await resolveOverride(p, rec.name);
+        if (f && f.url && !feeds.some((x) => x.url === f.url)) feeds.push(f);
         await sleep(DELAY_MS);
+      }
+      if (feeds.length) {
+        index[rec.slug] = feeds; // pinned feeds are authoritative, in listed order
+        added++;
+        console.log(`OK pinned: ${feeds.length} feed(s) — ${feeds.map((f) => f.title).join(' · ')}`);
+        fs.writeFileSync(OUT, JSON.stringify(index));
         continue;
       }
-      console.log('pin unresolved — falling back to search');
-      process.stdout.write(`   [${i}/${items.length}] ${rec.name} (search) … `);
+      // A pinned slug must NEVER fall back to a generic search (that's how the
+      // wrong recording — e.g. a discourse — sneaks back in). Leave it for the
+      // next run; keep any previously-resolved value rather than overwriting it.
+      console.log('pin unresolved (archive.org busy?) — kept for retry, not searched');
+      if (!index[rec.slug]) index[rec.slug] = [];
+      fs.writeFileSync(OUT, JSON.stringify(index));
+      await sleep(DELAY_MS);
+      continue;
     }
 
     // 2) Try each query phrase until one resolves to a real mp3.

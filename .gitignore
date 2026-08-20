@@ -31,3 +31,18 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# delete
+/_to_delete
+
+# android TWA build — NEVER commit the signing key or build outputs
+# (keep the key + its passwords backed up OUTSIDE the repo; losing it = no app updates)
+/android/*.keystore
+/android/*.jks
+/android/*.apk
+/android/*.aab
+/android/*.idsig
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/store_icon.png

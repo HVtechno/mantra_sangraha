@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { alignLines, currentLineIndex } from '@/lib/align';
-import { FEELINGS } from '@/lib/feelings';
 import { LANGS, DEFAULT_LANG, langMeta, t as translate } from '@/lib/i18n';
 import { saveAudioBlob, getAudioBlob, removeAudioBlob } from '@/lib/offline';
-import { resolve as resolveMantra } from '@/lib/aliases';
+import { resolve as resolveMantra, CATALOG } from '@/lib/aliases';
+import { mantraName } from '@/lib/mantraNames';
 
 const STORAGE_KEY = 'mantra-sangraha-book-v3';
 const OLD_KEY = 'mantra-sangraha-book-v2';
@@ -43,6 +43,42 @@ function clientId() {
 }
 function loadPending() { try { return JSON.parse(localStorage.getItem(REQ_KEY) || '[]'); } catch { return []; } }
 function savePending(list) { try { localStorage.setItem(REQ_KEY, JSON.stringify(list)); } catch {} }
+
+// --- Browse by deity + voice ------------------------------------------------
+// Chips render in this order; only groups that have catalog members show.
+const DEITY_GROUPS = [
+  { key: 'ganesha', c: '#ff9a5a', l: { en: 'Ganesha', sa: 'गणेश', hi: 'गणेश', ta: 'விநாயகர்', te: 'గణేశ', kn: 'ಗಣೇಶ', ml: 'ഗണേശൻ' } },
+  { key: 'shiva', c: '#7db2ff', l: { en: 'Shiva', sa: 'शिव', hi: 'शिव', ta: 'சிவன்', te: 'శివ', kn: 'ಶಿವ', ml: 'ശിവൻ' } },
+  { key: 'vishnu', c: '#ffd24a', l: { en: 'Vishnu', sa: 'विष्णु', hi: 'विष्णु', ta: 'விஷ்ணு', te: 'విష్ణు', kn: 'ವಿಷ್ಣು', ml: 'വിഷ്ണു' } },
+  { key: 'devi', c: '#ff6fae', l: { en: 'Devi', sa: 'देवी', hi: 'देवी', ta: 'தேவி', te: 'దేవి', kn: 'ದೇವಿ', ml: 'ദേവി' } },
+  { key: 'hanuman', c: '#ff7a4a', l: { en: 'Hanuman', sa: 'हनुमान', hi: 'हनुमान', ta: 'அனுமன்', te: 'హనుమాన్', kn: 'ಹನುಮಾನ್', ml: 'ഹനുമാൻ' } },
+  { key: 'surya', c: '#ffd36b', l: { en: 'Surya', sa: 'सूर्य', hi: 'सूर्य', ta: 'சூரியன்', te: 'సూర్య', kn: 'ಸೂರ್ಯ', ml: 'സൂര്യൻ' } },
+  { key: 'muruga', c: '#ff6f8b', l: { en: 'Subramanya', sa: 'सुब्रह्मण्य', hi: 'सुब्रह्मण्य', ta: 'முருகன்', te: 'సుబ్రహ్మణ్య', kn: 'ಸುಬ್ರಹ್ಮಣ್ಯ', ml: 'സുബ്രഹ്മണ്യൻ' } },
+  { key: 'ayyappa', c: '#7fd0ff', l: { en: 'Ayyappa', sa: 'अय्यप्पा', hi: 'अय्यप्पा', ta: 'ஐயப்பன்', te: 'అయ్యప్ప', kn: 'ಅಯ್ಯಪ್ಪ', ml: 'അയ്യപ്പൻ' } },
+  { key: 'guru', c: '#c9a0ff', l: { en: 'Guru / Datta', sa: 'गुरु / दत्त', hi: 'गुरु / दत्त', ta: 'குரு / தத்தர்', te: 'గురు / దత్త', kn: 'ಗುರು / ದತ್ತ', ml: 'ഗുരു / ദത്ത' } },
+  { key: 'veda', c: '#8ee6c9', l: { en: 'Veda', sa: 'वेद', hi: 'वेद', ta: 'வேதம்', te: 'వేదం', kn: 'ವೇದ', ml: 'വേദം' } },
+];
+function deityGroup(deity) {
+  const d = String(deity || '').toLowerCase();
+  if (/hanuman|anjaneya/.test(d)) return 'hanuman';
+  if (/ganesha|ganapati|vinayaka/.test(d)) return 'ganesha';
+  if (/subrahmanya|subramanya|kartikeya|muruga|skanda/.test(d)) return 'muruga';
+  if (/ayyappa|hariharatmaja|sastha|manikanta/.test(d)) return 'ayyappa';
+  if (/surya|aditya|navagraha/.test(d)) return 'surya';
+  if (/dattatreya|guru|sai baba|shirdi/.test(d)) return 'guru';
+  if (/shiva|bhairava|ardhanari|rudra|nataraja|maheswara|atman/.test(d)) return 'shiva';
+  if (/lakshmi|durga|saraswati|devi|lalita|parvati|medha|annapurna/.test(d)) return 'devi';
+  if (/vishnu|venkateswara|krishna|narasimha|rama|govinda|purusha|narayana|jagannatha|balaji/.test(d)) return 'vishnu';
+  return 'veda';
+}
+// Localised deity label for a catalog `deity` string, via its group (falls back to the raw deity).
+function deityLabel(deity, lang) {
+  if (!deity) return '';
+  const g = DEITY_GROUPS.find((x) => x.key === deityGroup(deity));
+  return (g && g.l && (g.l[lang] || g.l.en)) || deity;
+}
+// UI language -> speech-recognition locale (names are best heard as Indian English/Hindi).
+const VOICE_LANG = { sa: 'hi-IN', hi: 'hi-IN', ta: 'ta-IN', te: 'te-IN', kn: 'kn-IN', ml: 'ml-IN', en: 'en-IN' };
 const DEFAULT_YT = {};
 
 const GRADS = [
@@ -108,6 +144,72 @@ export default function Home() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [pending, setPending] = useState([]);     // mantra requests awaiting a match
   const [readyReq, setReadyReq] = useState(null);  // { text, name } once one is available
+  const [deityFilter, setDeityFilter] = useState(null); // null = Popular, else a deity group key
+  const [listening, setListening] = useState(false);    // voice search active
+  const [voiceOK, setVoiceOK] = useState(false);        // browser supports speech recognition
+  const recRef = useRef(null);
+
+  // Group the catalog by deity for the browse chips (deduped by slug).
+  const deityMembers = useMemo(() => {
+    const m = {}; const seen = new Set();
+    for (const rec of CATALOG) { if (seen.has(rec.slug)) continue; seen.add(rec.slug); const g = deityGroup(rec.deity); (m[g] = m[g] || []).push(rec); }
+    return m;
+  }, []);
+
+  // Popular = a fresh random handful of the whole catalog, reshuffled on every
+  // app open. Done in an effect (client-only) so it never causes a hydration flash.
+  const [popularSample, setPopularSample] = useState([]);
+  useEffect(() => {
+    const pool = [];
+    const seen = new Set();
+    for (const r of CATALOG) { if (!seen.has(r.slug)) { seen.add(r.slug); pool.push(r); } }
+    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    setPopularSample(pool.slice(0, 8));
+  }, []);
+
+  // ---- Continuous "Play all" player (rides on the existing archive streaming) --
+  const [queue, setQueue] = useState([]);      // [{ slug, name, deity }]
+  const [qi, setQi] = useState(-1);            // current index (-1 = idle)
+  const [qUrl, setQUrl] = useState('');        // resolved mp3 url of current track
+  const [qPlaying, setQPlaying] = useState(false);
+  const [qOpen, setQOpen] = useState(false);   // expanded player overlay
+  const [qLabel, setQLabel] = useState('');
+  const [qProg, setQProg] = useState(0);       // 0..100
+  const [qLoading, setQLoading] = useState(false); // resolving/buffering a track
+  const playerAudio = useRef(null);
+
+  const playAll = (list, label) => {
+    const items = (list || []).map((r) => ({ slug: r.slug, name: r.name, deity: r.deity }));
+    if (!items.length) return;
+    setQueue(items); setQLabel(label || ''); setQOpen(false); setQi(0);
+  };
+  const advance = (dir, auto) => setQi((i) => {
+    if (i < 0) return i;
+    let n = i + dir;
+    if (n < 0) n = auto ? -1 : (queue.length - 1);
+    else if (n >= queue.length) n = auto ? -1 : 0;
+    return n;
+  });
+  const togglePlay = () => { const a = playerAudio.current; if (!a) return; if (a.paused) { a.play().then(() => setQPlaying(true)).catch(() => {}); } else { a.pause(); setQPlaying(false); } };
+
+  // Resolve + play the current track; skip forward when a track has no audio.
+  useEffect(() => {
+    if (qi < 0 || !queue[qi]) { setQUrl(''); const a = playerAudio.current; if (a) { try { a.pause(); } catch {} } setQPlaying(false); setQLoading(false); return; }
+    let cancelled = false; setQUrl(''); setQProg(0); setQLoading(true);
+    (async () => {
+      const it = queue[qi];
+      try {
+        const r = await fetch(`/api/audio?slug=${encodeURIComponent(it.slug)}&name=${encodeURIComponent(it.name || '')}`);
+        const j = await r.json();
+        if (cancelled) return;
+        if (j.ok && j.url) setQUrl(j.url); else advance(1, true);
+      } catch { if (!cancelled) advance(1, true); }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qi, queue]);
+  // Autoplay when the resolved url changes.
+  useEffect(() => { const a = playerAudio.current; if (a && qUrl) a.play().then(() => setQPlaying(true)).catch(() => {}); }, [qUrl]);
 
   const t = useCallback((k) => translate(lang, k), [lang]);
   const script = langMeta(lang).script;
@@ -216,6 +318,31 @@ export default function Home() {
     finally { setLoading(false); }
   }, [query, script]);
 
+  // Voice search: fill the box from speech, then fetch. Web Speech API (works in
+  // Chrome / the Android app). Falls back silently where unsupported.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)) setVoiceOK(true);
+  }, []);
+  const startVoice = () => {
+    const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SR) return;
+    if (listening) { try { recRef.current && recRef.current.stop(); } catch {} return; }
+    const rec = new SR();
+    rec.lang = VOICE_LANG[lang] || 'en-IN';
+    rec.interimResults = true; rec.maxAlternatives = 1; rec.continuous = false;
+    let finalText = '';
+    rec.onresult = (e) => {
+      let txt = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) txt += e.results[i][0].transcript;
+      txt = txt.trim(); setQuery(txt);
+      if (e.results[e.results.length - 1].isFinal) finalText = txt;
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => { setListening(false); const q = finalText.trim(); if (q) doFetch(q); };
+    recRef.current = rec; setListening(true);
+    try { rec.start(); } catch { setListening(false); }
+  };
+
   const inBook = (id) => book.items.some((b) => b.id === id);
   const addToBook = (item) => {
     if (inBook(item.id)) { openReader(item.id); return; }
@@ -306,18 +433,55 @@ export default function Home() {
                 <h1>MANTRA SANGRAHA</h1>
                 <p className="sub">{t('tagline')}</p>
                 <div className="searchbar">
-                  <input value={query} placeholder={t('search_ph')} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') doFetch(); }} />
+                  <div className="searchwrap">
+                    <input value={query} placeholder={t('search_ph')} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') doFetch(); }} />
+                    {voiceOK && (
+                      <button className={`mic ${listening ? 'live' : ''}`} onClick={startVoice} title={t('voice_search')} aria-label={t('voice_search')}><i className={`ti ${listening ? 'ti-microphone-filled' : 'ti-microphone'}`} /></button>
+                    )}
+                  </div>
                   <button className="btn" onClick={() => doFetch()} disabled={loading || !query.trim()}>{loading ? t('fetching') : t('fetch')}</button>
                 </div>
-                <div className="suggests">
-                  {suggestions.length
-                    ? suggestions.map((s, i) => (
-                        <button key={s.slug || i} className="chip" onClick={() => { setQuery(s.name); doFetch(s.name); }}>{s.name} {s.deity ? <small>· {s.deity}</small> : null}</button>
-                      ))
-                    : EXAMPLES.map((e, i) => (
-                        <button key={i} className="chip" onClick={() => doFetch(e.q)}>{e.l[lang] || e.q}</button>
-                      ))}
-                </div>
+                {listening && <div className="listening-hint">{t('voice_listening')}</div>}
+
+                {suggestions.length ? (
+                  <div className="suggests">
+                    {suggestions.map((s, i) => (
+                      <button key={s.slug || i} className="chip" onClick={() => { setQuery(s.name); doFetch(s.name); }}>{s.name} {s.deity ? <small>· {s.deity}</small> : null}</button>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <div className="seclbl-min">{t('browse_by_deity')}</div>
+                    <div className="browse-row">
+                      <div className="deity-scroll">
+                        <button className={`dchip ${!deityFilter ? 'on' : ''}`} onClick={() => setDeityFilter(null)}><span className="em" style={{ background: '#ffcf5c' }}>★</span>{t('browse_popular')}</button>
+                        {DEITY_GROUPS.filter((g) => (deityMembers[g.key] || []).length).map((g) => (
+                          <button key={g.key} className={`dchip ${deityFilter === g.key ? 'on' : ''}`} onClick={() => setDeityFilter(g.key)}><span className="em" style={{ background: g.c }}>ॐ</span>{g.l[lang] || g.l.en}</button>
+                        ))}
+                      </div>
+                      <span className="pa-divider" />
+                      <button className="pa-btn" title={t('play_all')} aria-label={t('play_all')}
+                        onClick={() => { const list = deityFilter ? (deityMembers[deityFilter] || []) : popularSample; const label = deityFilter ? (DEITY_GROUPS.find((g) => g.key === deityFilter)?.l[lang] || t('browse_popular')) : t('browse_popular'); playAll(list, label); }}>
+                        <i className="ti ti-player-play-filled" /> {t('play_all')}
+                      </button>
+                    </div>
+                    {deityFilter ? (
+                      <div className="browse-grid">
+                        {(deityMembers[deityFilter] || []).map((rec) => (
+                          <button key={rec.slug} className="mcard" onClick={() => doFetch(rec.name)}>
+                            <span className="mn">{mantraName(rec.slug, lang, rec.name)}</span>
+                            <span className="mmeta">{deityLabel(rec.deity, lang)}</span>
+                            <span className="rp">ॐ</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="suggests">
+                        {popularSample.map((rec) => (<button key={rec.slug} className="chip" onClick={() => doFetch(rec.name)}>{mantraName(rec.slug, lang, rec.name)}</button>))}
+                      </div>
+                    )}
+                  </>
+                )}
               </section>
 
               {error && (
@@ -364,13 +528,50 @@ export default function Home() {
             </>
           )}
 
-          {tab === 'bhava' && (<BhavaView t={t} lang={lang} onChant={(pick) => setChant(pick)} />)}
+          {tab === 'bhava' && (<BhavaView t={t} onChant={(pick) => setChant(pick)} />)}
         </div>
       </main>
 
       <nav className="tabbar no-print">
         {navItems.map((n) => (<div key={n.key} className={`ri ${tab === n.key ? 'on' : ''}`} onClick={() => onNav(n.key)}><i className={`ti ${n.icon}`} aria-hidden="true" /><span>{n.label}</span></div>))}
       </nav>
+
+      {/* continuous "Play all" player */}
+      <audio ref={playerAudio} src={qUrl || undefined}
+        onLoadStart={() => { if (qUrl) setQLoading(true); }}
+        onWaiting={() => setQLoading(true)}
+        onCanPlay={() => setQLoading(false)}
+        onPlaying={() => { setQLoading(false); setQPlaying(true); }}
+        onEnded={() => advance(1, true)} onPlay={() => setQPlaying(true)} onPause={() => setQPlaying(false)}
+        onTimeUpdate={(e) => { const a = e.currentTarget; if (a.duration) setQProg((a.currentTime / a.duration) * 100); }} style={{ display: 'none' }} />
+      {qi >= 0 && queue[qi] && (
+        <div className="nowbar no-print" onClick={() => setQOpen(true)}>
+          <span className="np-prog" style={{ width: qProg + '%' }} />
+          <span className="np-art">ॐ</span>
+          <div className="np-meta"><div className="np-t">{mantraName(queue[qi].slug, lang, queue[qi].name)}</div><div className="np-s">{qLoading ? t('loading_audio') : `${qLabel ? qLabel + ' · ' : ''}${t('recitation')}`}</div></div>
+          <button className="icon-btn" onClick={(e) => { e.stopPropagation(); togglePlay(); }} disabled={qLoading} aria-label="play/pause"><i className={`ti ${qLoading ? 'ti-loader-2 spin' : (qPlaying ? 'ti-player-pause-filled' : 'ti-player-play-filled')}`} /></button>
+          <button className="icon-btn" onClick={(e) => { e.stopPropagation(); advance(1, false); }} aria-label="next"><i className="ti ti-player-track-next-filled" /></button>
+          <button className="icon-btn" onClick={(e) => { e.stopPropagation(); setQi(-1); setQUrl(''); setQOpen(false); }} aria-label={t('close')}><i className="ti ti-x" /></button>
+        </div>
+      )}
+      {qOpen && qi >= 0 && queue[qi] && (
+        <div className="player-ov no-print">
+          <div className="pov-top"><button className="icon-btn" onClick={() => setQOpen(false)}><i className="ti ti-chevron-down" /></button><span className="pov-h">{qLabel} · {t('play_all')}</span><span style={{ width: 38 }} /></div>
+          <div className="pov-art"><Rays /><span className="pov-om">ॐ</span></div>
+          <div className="pov-t">{mantraName(queue[qi].slug, lang, queue[qi].name)}</div>
+          <div className="pov-s">{qLoading ? t('loading_audio') : [deityLabel(queue[qi].deity, lang), t('recitation')].filter(Boolean).join(' · ')}</div>
+          <div className="pov-progbar"><i style={{ width: qProg + '%' }} /></div>
+          <div className="pov-ctrls">
+            <button className="icon-btn lg" onClick={() => advance(-1, false)} aria-label="previous"><i className="ti ti-player-track-prev-filled" /></button>
+            <button className="icon-btn big" onClick={togglePlay} disabled={qLoading} aria-label="play/pause"><i className={`ti ${qLoading ? 'ti-loader-2 spin' : (qPlaying ? 'ti-player-pause-filled' : 'ti-player-play-filled')}`} /></button>
+            <button className="icon-btn lg" onClick={() => advance(1, false)} aria-label="next"><i className="ti ti-player-track-next-filled" /></button>
+          </div>
+          <div className="pov-qh">{t('up_next')}</div>
+          <div className="pov-queue">
+            {queue.map((it, i) => (<div key={i} className={`pov-qrow ${i === qi ? 'on' : ''}`} onClick={() => setQi(i)}><i className={`ti ${i === qi ? 'ti-volume' : 'ti-player-play'}`} />{mantraName(it.slug, lang, it.name)}</div>))}
+          </div>
+        </div>
+      )}
 
       {langModal && <LangModal current={lang} onChoose={chooseLang} onClose={() => setLangModal(false)} firstRun={!loaded || !localStorageHas(LANG_KEY)} />}
       {feedbackOpen && <FeedbackSheet t={t} lang={lang} script={script} onClose={() => setFeedbackOpen(false)} onSubmitted={onFeedbackSubmitted} />}
@@ -488,7 +689,7 @@ function FeedbackSheet({ t, lang, script, onClose, onSubmitted }) {
               <button className="btn ghost small" onClick={onClose}>{t('close')}</button>
               <button className="btn" disabled={!text.trim() || state === 'sending'} onClick={submit}>{state === 'sending' ? t('fb_sending') : t('fb_send')}</button>
             </div>
-            <p className="fb-note">{t('fb_privacy')}</p>
+            <p className="fb-note">{t('fb_privacy')} · <a href="/privacy" target="_blank" rel="noreferrer">{t('privacy_policy')}</a></p>
           </>
         )}
       </div>
@@ -523,15 +724,10 @@ function LangModal({ current, onChoose, onClose, firstRun }) {
 
 const MYFEEL_KEY = 'mantra-sangraha-myfeelings-v1';
 
-function BhavaView({ t, lang, onChant }) {
-  const [q, setQ] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState(null);
-  const [ai, setAi] = useState(false);
-  const [titles, setTitles] = useState({});
-  const scr = langMeta(lang).script;
-
-  // "My mantras": user-added feeling → mantra, saved locally, playable anytime.
+// Feeling / Meditation — pick a mantra (feeling → mantra), saved locally, and
+// open it in the full chant-meditation (verses + auto recitation + drone).
+// The former OpenAI mood-search was removed; everything else is unchanged.
+function BhavaView({ t, onChant }) {
   const [mine, setMine] = useState([]);
   const [adding, setAdding] = useState(false);
   const [feelIn, setFeelIn] = useState('');
@@ -554,39 +750,9 @@ function BhavaView({ t, lang, onChant }) {
     setAdding(false); setFeelIn(''); setMIn(''); setChosen(null); setSugg([]);
   };
   const removeMine = (i) => persistMine(mine.filter((_, idx) => idx !== i));
-  const run = async (term) => {
-    const query = (term ?? q).trim(); if (!query) return;
-    setQ(query); setLoading(true); setResults(null); setTitles({});
-    try {
-      const r = await fetch(`/api/mood?q=${encodeURIComponent(query)}`);
-      const j = await r.json();
-      const matches = j.matches || [];
-      setResults(matches); setAi(!!j.ai);
-      // localize card names for non-English UIs (also pre-warms the chant fetch)
-      if (lang !== 'en') {
-        matches.forEach(async (p) => {
-          try {
-            const rr = await fetch(`/api/fetch?mantra=${encodeURIComponent(p.slug)}&script=${encodeURIComponent(scr)}`);
-            const jj = await rr.json();
-            if (jj.ok && jj.title) setTitles((prev) => ({ ...prev, [p.slug]: jj.title }));
-          } catch {}
-        });
-      }
-    } catch { setResults([]); } finally { setLoading(false); }
-  };
-  const examples = FEELINGS.map((x) => t('feel_' + x.key));
   return (
     <>
       <div className="bhava-head"><div className="dev">॥ भाव ॥</div><h2>{t('bhava_title')}</h2><p>{t('bhava_sub')}</p></div>
-      <div className="mood-search">
-        <input value={q} placeholder={t('mood_ph')} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') run(); }} />
-        <button className="mood-ai" onClick={() => run()} disabled={loading || !q.trim()} aria-label={t('mood_go')}>
-          <i className={`ti ${loading ? 'ti-loader-2 spin' : 'ti-sparkles'}`} />
-        </button>
-      </div>
-      <div className="suggests" style={{ maxWidth: 560 }}>
-        {examples.map((ex, i) => (<button key={i} className="chip" onClick={() => run(ex)}>{ex}</button>))}
-      </div>
 
       <div className="seclbl myfeel-head">
         <span><i className="ti ti-heart" /> {t('my_picks')}</span>
@@ -621,24 +787,7 @@ function BhavaView({ t, lang, onChant }) {
           ))}
         </div>
       ) : (!adding && <p className="hint" style={{ marginTop: 4 }}>{t('add_own_title')}.</p>)}
-
-      {results && (results.length ? (
-        <>
-          <div className="seclbl" style={{ marginTop: 18 }}><i className="ti ti-sparkles" /> {results.length} {t('ai_matched')}</div>
-          <div className="grid">
-            {results.map((p, i) => (
-              <div key={i} className="gcard" style={{ background: gradientFor(p.slug) }} onClick={() => onChant({ q: p.slug, name: p.name, deity: p.deity })}>
-                <svg className="rp" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="#fff" strokeWidth="3"><circle cx="50" cy="50" r="40" /><circle cx="50" cy="50" r="24" /></g></svg>
-                <div className="gname">{titles[p.slug] || p.name}</div><div className="gmeta">{p.deity}</div>
-                <div className="gmeta" style={{ opacity: 0.95, marginTop: 6, fontStyle: 'italic' }}>{p.reason}</div>
-                <span className="chant-go"><i className="ti ti-player-play" /></span>
-              </div>
-            ))}
-          </div>
-          <p className="hint">{ai ? t('ai_note') : t('bhava_note')}</p>
-        </>
-      ) : (<p className="hint">{t('mood_none')}</p>))}
-      {!results && <p className="hint" style={{ marginTop: 20 }}>{t('bhava_note')}</p>}
+      <p className="hint" style={{ marginTop: 20 }}>{t('bhava_note')}</p>
     </>
   );
 }

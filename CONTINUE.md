@@ -130,6 +130,76 @@ or *Share feedback*. No accounts anywhere.
   `lib/catalog.js` sitemap), (3) wrap the PWA as native apps for the stores
   (Capacitor/TWA, not a rewrite); PRICING to discuss.
 
+**Play-all continuous player + Feeling rework (2026-08-19):**
+- HOME: deity chips now scroll in `.deity-scroll` with a PINNED **▶ Play all** on
+  the right (`.pa-btn`). Tapping it plays the selected deity's mantras (or the
+  Popular set) continuously via a new player: a fixed **now-playing bar**
+  (`.nowbar`) above the tab bar → tap to expand a full **player overlay**
+  (`.player-ov`) with prev/play/next + a tappable queue + autoplay-next. Player
+  state (`queue/qi/qUrl/qPlaying/qOpen/qLabel/qProg`, `playerAudio` ref,
+  `playAll/advance/togglePlay`) lives in `Home`; it resolves each track's mp3 from
+  `/api/audio?slug=` on demand and skips tracks with no audio. Reuses the existing
+  archive streaming — no new backend.
+- POPULAR now = a random 8 from the WHOLE catalog, reshuffled every app open
+  (`popularSample` in a mount effect, client-only → no hydration flash).
+- FEELING (Bhava): ONLY the OpenAI mood-search was removed — everything else is
+  unchanged. `BhavaView` is the original "My picks" (feeling → mantra picked from
+  the catalog via `/api/search`, saved to `MYFEEL_KEY`) → tap → the FULL
+  `ChantMeditation` (verses + meaning + auto drone + recitation audio + shuffle).
+  (An earlier pass wrongly replaced this with a text-only `CustomChant` — reverted;
+  `CustomChant` removed.) Removed `import FEELINGS`; moved `app/api/mood/route.js`,
+  `lib/mood.js`, `lib/feelings.js` → `_to_delete/`. `OPENAI_API_KEY` no longer used.
+  (Unused `medi_*` i18n keys + `.add-mantra/.mantra-list` CSS remain — harmless.)
+- i18n keys added (English; fallback covers others): `play_all, up_next,
+  medi_title, medi_sub, add_mantra_label, add_mantra_ph, medi_begin, my_mantras,
+  medi_empty`. CSS: `.browse-row/.deity-scroll/.pa-btn/.nowbar/.player-ov/
+  .add-mantra/.mantra-list/.mrow`.
+
+**Catalog expansion — batch 2 (2026-08-19):** 72 → 85 (verified vignanam slugs).
+Added: Muruga extras (Kanda Sashti Kavacham `kanda-shashti-kavacham-tamil`,
+Subrahmanya Kavacha), NEW Ayyappa group (Harivarasanam
+`harivarasanam-hariharatmaja-ashtakam`, Ayyappa Stotram, Ayyappa Saranu Ghosha),
+Sai Baba (`sai-baba-ashtottara-sata-namavali` → grouped under Guru/Datta),
+Vishnu Sahasranama (`sree-vishnu-sahasra-nama-stotram`), Rama Raksha, Aditya
+Hridayam (`aditya-hrudayam` → Surya), Annapurna (→ Devi), Shanti Mantram / Shanti
+Panchakam / Nitya Parayana Slokas (→ Veda). Added an **Ayyappa** chip to
+DEITY_GROUPS and taught `deityGroup()` about ayyappa/sai/annapurna. RUN
+`node scripts/build-audio-index.cjs` to fetch audio for the 13 new slugs, then
+commit `audioIndex.json` + `aliases.js` + `page.js`. (`sri-suktam` dup persists,
+harmless.)
+
+**Browse-by-deity + voice search (2026-08-19):** family feedback — elders find
+typing hard and the mantra isn't always in suggestions. Fix in `app/page.js`:
+(1) a "Browse by deity" chip row under the search (Ganesha, Shiva, Vishnu, Devi,
+Hanuman, Surya, Subramanya, Guru/Datta, Veda) — tapping a chip shows a grid of
+that deity's mantras (from CATALOG via `deityGroup()`), tap to fetch; "Popular"
+chip = the existing examples. Chips localized in all 7 languages; mantra names
+stay English like suggestions. (2) Voice search — a mic inside the search box
+(Web Speech API, works in Chrome/the Android app); speaks → fills box → fetches;
+hidden where unsupported; routed through normal fetch so the fuzzy resolver
+catches near-misses. Also shipped: privacy policy at `/privacy` (Play-ready,
+linked from Suggest sheet) — REPLACE the `REPLACE_WITH_YOUR_CONTACT_EMAIL`
+placeholder before deploy. NOTE: no Google Analytics is actually in the app code
+(layout.js has none) — policy says "no tracking"; if GA is wanted, add it + update
+policy. CSS: `.searchwrap/.mic/.deity-row/.dchip/.browse-grid/.mcard/.legal`.
+i18n keys: `browse_by_deity, browse_popular, voice_search, voice_listening,
+privacy_policy` (English; deity chip labels localized inline in page.js).
+
+**Android app — Bubblewrap/TWA scaffold (2026-08-18):** wrapping the LIVE site
+(`mantra-sangraha.onrender.com`) as a Trusted Web Activity — the app is a shell
+that opens the deployed PWA full-screen, so it's 100% feature-complete by
+construction and auto-updates with every web deploy (no separate mobile codebase).
+Package ID (permanent): `com.hvtechno.mantrasangraha`. Files added:
+`public/.well-known/assetlinks.json` (domain-verification, deploys with the site —
+has placeholder SHA-256s to fill after keystore creation), `android/twa-manifest.json`
+(Bubblewrap config), `android/ANDROID_BUILD.md` (full step-by-step). The build
+itself runs on the USER's machine (`npm i -g @bubblewrap/cli` → `bubblewrap init
+--manifest <url>` → `bubblewrap build`) because the signing keystore + Play account
+are theirs. Manifest already TWA-ready (192/512/maskable icons, standalone, colors).
+Still TODO before store submit: a `/privacy` page (Play requires a privacy policy
+URL — offered to build it). iOS (Capacitor) is the next platform after Android.
+User will run a full web-vs-app feature sanity check once the APK is built.
+
 **Catalog expansion — batch 1 (2026-08-18):** grew `lib/aliases.js` CATALOG from
 50 → 72 with verified vignanam slugs (harvested via site-scoped web search, so
 slugs are real) across Ganesha, Venkateswara/Krishna, Rama/Hanuman, Shiva (more),

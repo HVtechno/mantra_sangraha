@@ -1,5 +1,9 @@
 {
-  "_comment": "Pin the EXACT archive.org recording for a mantra when auto-search picks the wrong one (e.g. a discourse instead of a chant). Key = the mantra's slug (see lib/aliases.js). Value = an archive.org item id ('BhajaGovindam_469'), a details/download URL (https://archive.org/details/BhajaGovindam_469), or a direct .mp3 URL. Pins ALWAYS win and are re-resolved on every build. After editing, just re-run: node scripts/build-audio-index.cjs — pinned slugs rebuild even if already present. Lines starting with _ are ignored.",
-  "bhaja-govindam-moha-mudagaram": "BhajaGovindam_469",
-  "hanuman-chalisa": "HanumanChalisaMSSubbulakshmiwww.Mp3MaD.Com"
+  "_comment": "Pin the EXACT archive.org recording(s) for a mantra when auto-search picks the wrong one, or when you want specific tracks. Key = the mantra's slug (see lib/aliases.js). Value = an archive.org item id, a details/download URL, or — MOST RELIABLE — a direct .mp3 URL (https://archive.org/download/<item>/<file>.mp3, needs NO live lookup so it can never fail mid-build). Value can ALSO be an ARRAY of any of those to pin MULTIPLE recitations — they become the feeds for this mantra, in order, and 'another voice' cycles through them. Pins ALWAYS win and re-resolve every build; a pin that can't resolve is left for retry (never replaced by a search result). Bare item ids need a metadata call that archive.org can rate-limit on a big run, so re-run if one comes up empty. Re-run: node scripts/build-audio-index.cjs. Lines starting with _ are ignored.",
+  "bhaja-govindam-moha-mudagaram": "https://archive.org/download/BhajaGovindam_469/BhajaGovindam.mp3",
+  "hanuman-chalisa": "HanumanChalisaMSSubbulakshmiwww.Mp3MaD.Com",
+  "kanda-shashti-kavacham-tamil": [
+    "SkandhaSashtiKavacham1",
+    "SkandhaSashtiKavacham2"
+  ]
 }

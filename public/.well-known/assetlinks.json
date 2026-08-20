@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.hvtechno.mantrasangraha",
+      "sha256_cert_fingerprints": [
+        "7A:78:30:73:82:01:B8:06:25:F8:33:45:57:07:03:DD:5F:1C:4E:3B:50:EF:73:91:06:B5:21:AA:6E:C3:AF:5E"
+      ]
+    }
+  }
+]
