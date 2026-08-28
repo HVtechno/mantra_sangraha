@@ -2,7 +2,7 @@
 // Admin-only. Gated by the shared ADMIN_TOKEN secret (x-admin-token header) —
 // not a login. GET lists submissions (active or ?view=archive) and auto-archives
 // feedback older than 30 days. POST performs archive / restore / delete.
-import { listFeedback, archiveItem, restoreItem, deleteItem, pruneOldFeedback, backend, counts } from '@/lib/feedbackStore';
+import { listFeedback, archiveItem, restoreItem, deleteItem, pruneOldFeedback, backend, counts, getStats } from '@/lib/feedbackStore';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -28,8 +28,10 @@ export async function GET(request) {
     try { pruned = await pruneOldFeedback(RETENTION_DAYS); } catch {}
     const items = await listFeedback(view === 'archive' ? 3000 : 500, view);
     const c = await counts();
+    let stats = null;
+    try { stats = await getStats(); } catch {}
     return Response.json({
-      ok: true, view, backend: backend(), pruned,
+      ok: true, view, backend: backend(), pruned, stats,
       counts: {
         active: c.active, archive: c.archive,
         mantra: items.filter((x) => x.kind === 'mantra').length,

@@ -6,6 +6,7 @@ import { LANGS, DEFAULT_LANG, langMeta, t as translate } from '@/lib/i18n';
 import { saveAudioBlob, getAudioBlob, removeAudioBlob } from '@/lib/offline';
 import { resolve as resolveMantra, CATALOG } from '@/lib/aliases';
 import { mantraName } from '@/lib/mantraNames';
+import { SEVA, upiLink, sevaConfigured } from '@/lib/seva';
 
 const STORAGE_KEY = 'mantra-sangraha-book-v3';
 const OLD_KEY = 'mantra-sangraha-book-v2';
@@ -142,6 +143,7 @@ export default function Home() {
   const [chant, setChant] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [sevaOpen, setSevaOpen] = useState(false);
   const [pending, setPending] = useState([]);     // mantra requests awaiting a match
   const [readyReq, setReadyReq] = useState(null);  // { text, name } once one is available
   const [deityFilter, setDeityFilter] = useState(null); // null = Popular, else a deity group key
@@ -213,6 +215,12 @@ export default function Home() {
 
   const t = useCallback((k) => translate(lang, k), [lang]);
   const script = langMeta(lang).script;
+
+  // Count one anonymous visit per browser session (for the private /msadminhv tracker).
+  useEffect(() => {
+    try { if (sessionStorage.getItem('ms-visit-pinged')) return; sessionStorage.setItem('ms-visit-pinged', '1'); } catch {}
+    fetch('/api/visit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client: clientId() }) }).catch(() => {});
+  }, []);
 
   // Register the service worker (enables PWA install + offline shell) and keep it
   // fresh: check for a new version whenever the app regains focus, and when a new
@@ -426,6 +434,7 @@ export default function Home() {
               <section className="hero">
                 <InstallButton t={t} />
                 <div className="hero-tools">
+                  <button className="globe-btn icon-only seva-btn" onClick={() => setSevaOpen(true)} aria-label={t('seva_open')} title={t('seva_open')}><i className="ti ti-flame" /></button>
                   <button className={`globe-btn icon-only ${readyReq ? 'alert' : ''}`} onClick={() => setFeedbackOpen(true)} aria-label={t('fb_open')} title={t('fb_open')}><i className={`ti ${readyReq ? 'ti-bell-ringing' : 'ti-bell'}`} />{pending.length && !readyReq ? <span className="ri-dot" /> : null}</button>
                   <button className="globe-btn" onClick={() => setLangModal(true)} aria-label={t('change_language')}><i className="ti ti-language" /> {langMeta(lang).native}</button>
                 </div>
@@ -575,6 +584,7 @@ export default function Home() {
 
       {langModal && <LangModal current={lang} onChoose={chooseLang} onClose={() => setLangModal(false)} firstRun={!loaded || !localStorageHas(LANG_KEY)} />}
       {feedbackOpen && <FeedbackSheet t={t} lang={lang} script={script} onClose={() => setFeedbackOpen(false)} onSubmitted={onFeedbackSubmitted} />}
+      {sevaOpen && <SevaSheet t={t} onClose={() => setSevaOpen(false)} />}
       {reader && <Reader t={t} book={book} startItemId={reader.startItemId} onClose={() => setReader(null)} patchItem={patchItem} onRemove={removeFromBook} />}
       {chant && <ChantMeditation t={t} lang={lang} pick={chant} script={script} inBook={inBook(chant.q)} onClose={() => setChant(null)} onSave={saveFromBhava} />}
     </div>
@@ -692,6 +702,43 @@ function FeedbackSheet({ t, lang, script, onClose, onSubmitted }) {
             <p className="fb-note">{t('fb_privacy')} · <a href="/privacy" target="_blank" rel="noreferrer">{t('privacy_policy')}</a></p>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Optional "Seva" — a voluntary offering that gates NOTHING in the app. Presets
+// plus an "any amount" box; opens the user's UPI app when a real UPI ID is set
+// in lib/seva.js. Records each tap (interest signal) via /api/seva.
+function SevaSheet({ t, onClose }) {
+  const [amount, setAmount] = useState(SEVA.amounts[1] || SEVA.amounts[0]);
+  const [custom, setCustom] = useState('');
+  const eff = custom ? Math.max(1, Math.round(Number(custom) || 0)) : amount;
+  const live = sevaConfigured();
+
+  const offer = () => {
+    fetch('/api/seva', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: eff }) }).catch(() => {});
+    if (live && eff > 0) { try { window.location.href = upiLink(eff); } catch {} }
+  };
+
+  return (
+    <div className="lang-modal" onClick={onClose}>
+      <div className="fb-card seva-card" onClick={(e) => e.stopPropagation()}>
+        <div className="seva-lamp">🪔</div>
+        <h3>{t('seva_title')}</h3>
+        <p className="seva-sub">{t('seva_sub')}</p>
+        <div className="seva-amts">
+          {SEVA.amounts.map((a) => (
+            <button key={a} type="button" className={`seva-amt ${!custom && amount === a ? 'on' : ''}`} onClick={() => { setCustom(''); setAmount(a); }}>₹{a}</button>
+          ))}
+        </div>
+        <input className="seva-custom" inputMode="numeric" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} placeholder={t('seva_custom')} />
+        <button className="btn seva-pay" disabled={eff <= 0} onClick={offer}>{t('seva_pay')} ₹{eff}</button>
+        {live
+          ? <p className="fb-note">{t('seva_upi_hint')} <b>{SEVA.upiId}</b></p>
+          : <p className="fb-note">{t('seva_soon')}</p>}
+        <p className="fb-note seva-vol">{t('seva_note')}</p>
+        <button className="btn ghost small" onClick={onClose}>{t('close')}</button>
       </div>
     </div>
   );

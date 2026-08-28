@@ -76,6 +76,8 @@ export default function Admin() {
   const rated = items.filter((x) => x.rating > 0);
   const avg = rated.length ? (rated.reduce((s, x) => s + x.rating, 0) / rated.length) : 0;
   const isArchive = view === 'archive';
+  const st = (data && data.stats) || null;
+  const trMax = st ? Math.max(1, ...st.last7.map((x) => x.users || 0)) : 1;
 
   return (
     <div className="admin-wrap">
@@ -88,6 +90,30 @@ export default function Admin() {
       </div>
 
       {err && <div className="admin-err">{err}</div>}
+
+      {st && (
+        <div className="admin-traffic">
+          <div className="tr-cards">
+            <div className="tr-card gold"><b>{st.usersTotal != null ? st.usersTotal : '—'}</b><span>unique users</span></div>
+            <div className="tr-card"><b>{st.usersToday != null ? st.usersToday : '—'}</b><span>active today</span></div>
+            <div className="tr-card"><b>{st.usersWeek != null ? st.usersWeek : '—'}</b><span>active this week</span></div>
+            <div className="tr-card"><b>{st.visitsTotal}</b><span>total visits</span></div>
+            <div className="tr-card"><b>{st.sevaCount}</b><span>seva taps</span></div>
+            <div className="tr-card gold"><b>₹{st.sevaSum}</b><span>seva intent</span></div>
+          </div>
+          <div className="tr-sparkhead">Active users · last 7 days</div>
+          <div className="tr-spark">
+            {st.last7.map((d) => (
+              <div key={d.date} className="tr-bar" title={`${d.date}: ${d.users || 0} active users · ${d.visits} visits`}>
+                <i style={{ height: `${Math.round(((d.users || 0) / trMax) * 100)}%` }} />
+                <b>{d.users || 0}</b>
+                <span>{d.date.slice(5)}</span>
+              </div>
+            ))}
+          </div>
+          <p className="tr-note"><b>Unique users</b> = distinct devices (an anonymous id stored in each browser). <b>Active today / this week</b> = unique devices seen in that window. <b>Visits</b> = app opens. Same person on phone + laptop counts as 2, and clearing browser data starts a fresh id. Seva = amount taps (interest), not confirmed payments.</p>
+        </div>
+      )}
 
       <div className="admin-viewtabs">
         <button className={view === 'active' ? 'on' : ''} onClick={() => setView('active')}>Active · {c.active}</button>

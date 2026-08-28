@@ -22,10 +22,10 @@ plugins {
 
 def twaManifest = [
     applicationId: 'com.hvtechno.mantrasangraha',
-    hostName: '​mantra-sangraha.onrender.com​', // The domain being opened in the TWA.
+    hostName: 'mantra-sangraha.onrender.com', // The domain being opened in the TWA.
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
     name: 'Mantra Sangraha', // The application name.
-    launcherName: 'mantra', // The name shown on the Android Launcher.
+    launcherName: 'Mantra', // The name shown on the Android Launcher.
     themeColor: '#0A0518', // The color used for the status bar.
     themeColorDark: '#000000', // The color used for the dark status bar.
     navigationColor: '#000000', // The color used for the navigation bar.

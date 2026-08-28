@@ -569,3 +569,36 @@ button { font-family: var(--sans); }
   .reader-top .icon-btn { width: 31px; height: 31px; font-size: 14px; }
   .reader-top .title { font-size: 14px; }
 }
+
+/* --- Seva (voluntary offering) ------------------------------------------- */
+.seva-btn i { color: #ffcf5c; }
+.seva-card { text-align: center; }
+.seva-lamp { font-size: 34px; line-height: 1; margin: 2px 0 6px; }
+.seva-card h3 { margin: 0 0 6px; }
+.seva-sub { color: var(--muted, #9b86b8); font-size: 13px; line-height: 1.5; margin: 0 auto 14px; max-width: 320px; }
+.seva-amts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px; }
+.seva-amt { border: 1px solid #4a3a1a; background: rgba(255,255,255,.05); color: var(--cream-soft, #e6c98a); border-radius: 999px; padding: 9px 16px; font-size: 15px; font-weight: 600; cursor: pointer; min-width: 62px; }
+.seva-amt.on { color: #3a1e06; background: linear-gradient(var(--gold, #ffcf5c), var(--gold-deep, #e2951f)); border-color: var(--gold-deep, #e2951f); }
+.seva-custom { width: 100%; border: 1px solid #4a3a1a; background: rgba(0,0,0,.2); color: var(--cream, #f4dca8); border-radius: 12px; padding: 11px 14px; font-size: 15px; text-align: center; margin-bottom: 12px; outline: none; }
+.seva-custom::placeholder { color: var(--muted, #9b86b8); }
+.seva-pay { width: 100%; margin-bottom: 10px; font-size: 16px; padding: 12px; }
+.seva-pay:disabled { opacity: .5; }
+.seva-card .fb-note { text-align: center; }
+.seva-card .fb-note b { color: var(--gold, #ffcf5c); font-weight: 600; }
+.seva-vol { opacity: .8; }
+
+/* --- Admin traffic / seva panel ------------------------------------------ */
+.admin-traffic { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+.tr-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 10px; }
+.tr-sparkhead { font-size: 11px; letter-spacing: .5px; text-transform: uppercase; color: var(--cream-soft, #e6c98a); margin: 16px 2px 2px; }
+.tr-card { background: rgba(255,255,255,.04); border-radius: 10px; padding: 10px 8px; text-align: center; }
+.tr-card b { display: block; font-size: 22px; color: var(--cream, #f4dca8); line-height: 1.1; }
+.tr-card span { font-size: 11px; color: var(--muted, #9b86b8); }
+.tr-card.gold b { color: var(--gold, #ffcf5c); }
+.tr-spark { display: flex; align-items: flex-end; gap: 6px; height: 76px; margin: 6px 4px 6px; }
+.tr-bar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 3px; }
+.tr-bar i { width: 100%; max-width: 34px; min-height: 3px; background: linear-gradient(var(--gold, #ffcf5c), var(--gold-deep, #e2951f)); border-radius: 4px 4px 0 0; display: block; }
+.tr-bar b { font-size: 11px; color: var(--cream-soft, #e6c98a); font-weight: 600; }
+.tr-bar span { font-size: 10px; color: var(--muted, #9b86b8); }
+.tr-note { font-size: 11px; color: var(--muted, #9b86b8); margin: 8px 2px 0; line-height: 1.5; }
+@media (max-width: 460px) { .tr-cards { grid-template-columns: repeat(3, 1fr); } }

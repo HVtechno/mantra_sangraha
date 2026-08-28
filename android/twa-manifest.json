@@ -1,8 +1,8 @@
 {
   "packageId": "com.hvtechno.mantrasangraha",
-  "host": "​mantra-sangraha.onrender.com​",
+  "host": "mantra-sangraha.onrender.com",
   "name": "Mantra Sangraha",
-  "launcherName": "mantra",
+  "launcherName": "Mantra",
   "display": "standalone",
   "themeColor": "#0A0518",
   "themeColorDark": "#000000",
@@ -18,7 +18,7 @@
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "D:\\mantra_sangraha\\android\\android.keystore",
-    "alias": "Mantra"
+    "alias": "android"
   },
   "appVersionName": "1",
   "appVersionCode": 1,

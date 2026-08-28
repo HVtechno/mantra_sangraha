@@ -109,7 +109,7 @@ export default function Privacy() {
       <h2>Contact</h2>
       <p>
         Questions or requests about your data? Contact us at{' '}
-        <a href="mailto:REPLACE_WITH_YOUR_CONTACT_EMAIL">REPLACE_WITH_YOUR_CONTACT_EMAIL</a>.
+        <a href="mailto:htechno0786@gmail.com">htechno0786@gmail.com</a>.
       </p>
     </main>
   );
