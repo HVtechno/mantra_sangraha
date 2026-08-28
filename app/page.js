@@ -6,7 +6,7 @@ import { LANGS, DEFAULT_LANG, langMeta, t as translate } from '@/lib/i18n';
 import { saveAudioBlob, getAudioBlob, removeAudioBlob } from '@/lib/offline';
 import { resolve as resolveMantra, CATALOG } from '@/lib/aliases';
 import { mantraName } from '@/lib/mantraNames';
-import { SEVA, upiLink, sevaConfigured } from '@/lib/seva';
+import { SEVA, SEVA_APPS, upiLink, sevaConfigured } from '@/lib/seva';
 
 const STORAGE_KEY = 'mantra-sangraha-book-v3';
 const OLD_KEY = 'mantra-sangraha-book-v2';
@@ -713,12 +713,18 @@ function FeedbackSheet({ t, lang, script, onClose, onSubmitted }) {
 function SevaSheet({ t, onClose }) {
   const [amount, setAmount] = useState(SEVA.amounts[1] || SEVA.amounts[0]);
   const [custom, setCustom] = useState('');
+  const [copied, setCopied] = useState(false);
   const eff = custom ? Math.max(1, Math.round(Number(custom) || 0)) : amount;
   const live = sevaConfigured();
 
-  const offer = () => {
+  // Record the tap (interest), then open the chosen UPI app via its own scheme.
+  const openApp = (base) => {
     fetch('/api/seva', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: eff }) }).catch(() => {});
-    if (live && eff > 0) { try { window.location.href = upiLink(eff); } catch {} }
+    if (live && eff > 0) { try { window.location.href = upiLink(eff, base); } catch {} }
+  };
+
+  const copyId = () => {
+    try { navigator.clipboard.writeText(SEVA.upiId); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
   };
 
   return (
@@ -733,10 +739,24 @@ function SevaSheet({ t, onClose }) {
           ))}
         </div>
         <input className="seva-custom" inputMode="numeric" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} placeholder={t('seva_custom')} />
-        <button className="btn seva-pay" disabled={eff <= 0} onClick={offer}>{t('seva_pay')} ₹{eff}</button>
-        {live
-          ? <p className="fb-note">{t('seva_upi_hint')} <b>{SEVA.upiId}</b></p>
-          : <p className="fb-note">{t('seva_soon')}</p>}
+
+        {live ? (
+          <>
+            <div className="seva-choose">{t('seva_choose')} · ₹{eff}</div>
+            <div className="seva-apps">
+              {SEVA_APPS.map((app) => (
+                <button key={app.key} type="button" className="seva-app" disabled={eff <= 0} onClick={() => openApp(app.base)}>{app.label}</button>
+              ))}
+            </div>
+            <button type="button" className="seva-vpa" onClick={copyId} title={t('seva_copy')}>
+              <span>{SEVA.upiId}</span>
+              <i className={`ti ${copied ? 'ti-check' : 'ti-copy'}`} />
+            </button>
+          </>
+        ) : (
+          <p className="fb-note">{t('seva_soon')}</p>
+        )}
+
         <p className="fb-note seva-vol">{t('seva_note')}</p>
         <button className="btn ghost small" onClick={onClose}>{t('close')}</button>
       </div>
