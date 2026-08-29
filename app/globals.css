@@ -583,14 +583,17 @@ button { font-family: var(--sans); }
 .seva-custom::placeholder { color: var(--muted, #9b86b8); }
 .seva-pay { width: 100%; margin-bottom: 10px; font-size: 16px; padding: 12px; }
 .seva-pay:disabled { opacity: .5; }
-.seva-choose { text-align: center; font-size: 12px; letter-spacing: .3px; color: var(--cream-soft, #e6c98a); margin: 4px 0 8px; }
-.seva-apps { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-.seva-app { border: 1px solid #4a3a1a; background: rgba(255,255,255,.05); color: var(--cream, #f4dca8); border-radius: 12px; padding: 12px 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.seva-choose { text-align: center; font-size: 12px; letter-spacing: .3px; color: var(--cream-soft, #e6c98a); margin: 4px 0 10px; }
+.seva-apps { display: flex; justify-content: center; gap: 12px; margin-bottom: 14px; }
+.seva-app { border: 1px solid #4a3a1a; background: rgba(255,255,255,.05); border-radius: 14px; padding: 8px; cursor: pointer; line-height: 0; }
 .seva-app:active { background: rgba(255,207,92,.14); }
 .seva-app:disabled { opacity: .5; }
-.seva-vpa { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border: 1px dashed #4a3a1a; background: rgba(0,0,0,.18); color: var(--gold, #ffcf5c); border-radius: 10px; padding: 9px 12px; font-size: 13px; cursor: pointer; margin-bottom: 8px; }
-.seva-vpa span { font-weight: 600; letter-spacing: .3px; }
-.seva-vpa i { font-size: 15px; color: var(--cream-soft, #e6c98a); }
+.seva-badge { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; font-weight: 800; font-size: 16px; letter-spacing: -.5px; }
+.seva-badge.other { background: rgba(255,255,255,.08); color: var(--cream-soft, #e6c98a); }
+.seva-badge.other i { font-size: 20px; }
+.seva-qr { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 8px; }
+.seva-qr img { width: 132px; height: 132px; background: #fff; padding: 8px; border-radius: 12px; }
+.seva-qr span { font-size: 12px; color: var(--muted, #9b86b8); }
 .seva-card .fb-note { text-align: center; }
 .seva-card .fb-note b { color: var(--gold, #ffcf5c); font-weight: 600; }
 .seva-vol { opacity: .8; }

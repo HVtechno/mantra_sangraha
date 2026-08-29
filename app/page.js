@@ -710,10 +710,17 @@ function FeedbackSheet({ t, lang, script, onClose, onSubmitted }) {
 // Optional "Seva" — a voluntary offering that gates NOTHING in the app. Presets
 // plus an "any amount" box; opens the user's UPI app when a real UPI ID is set
 // in lib/seva.js. Records each tap (interest signal) via /api/seva.
+// Small brand marks for the UPI-app buttons (symbols, not text labels).
+function SevaAppIcon({ k }) {
+  if (k === 'gpay') return <span className="seva-badge" style={{ background: '#fff', color: '#4285F4' }}>G</span>;
+  if (k === 'phonepe') return <span className="seva-badge" style={{ background: '#5f259f', color: '#fff' }}>Pe</span>;
+  if (k === 'paytm') return <span className="seva-badge" style={{ background: '#012b72', color: '#00b9f1' }}>P</span>;
+  return <span className="seva-badge other"><i className="ti ti-dots" /></span>;
+}
+
 function SevaSheet({ t, onClose }) {
   const [amount, setAmount] = useState(SEVA.amounts[1] || SEVA.amounts[0]);
   const [custom, setCustom] = useState('');
-  const [copied, setCopied] = useState(false);
   const eff = custom ? Math.max(1, Math.round(Number(custom) || 0)) : amount;
   const live = sevaConfigured();
 
@@ -721,10 +728,6 @@ function SevaSheet({ t, onClose }) {
   const openApp = (base) => {
     fetch('/api/seva', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: eff }) }).catch(() => {});
     if (live && eff > 0) { try { window.location.href = upiLink(eff, base); } catch {} }
-  };
-
-  const copyId = () => {
-    try { navigator.clipboard.writeText(SEVA.upiId); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
   };
 
   return (
@@ -745,13 +748,15 @@ function SevaSheet({ t, onClose }) {
             <div className="seva-choose">{t('seva_choose')} · ₹{eff}</div>
             <div className="seva-apps">
               {SEVA_APPS.map((app) => (
-                <button key={app.key} type="button" className="seva-app" disabled={eff <= 0} onClick={() => openApp(app.base)}>{app.label}</button>
+                <button key={app.key} type="button" className="seva-app" title={app.label} aria-label={app.label} disabled={eff <= 0} onClick={() => openApp(app.base)}>
+                  <SevaAppIcon k={app.key} />
+                </button>
               ))}
             </div>
-            <button type="button" className="seva-vpa" onClick={copyId} title={t('seva_copy')}>
-              <span>{SEVA.upiId}</span>
-              <i className={`ti ${copied ? 'ti-check' : 'ti-copy'}`} />
-            </button>
+            <div className="seva-qr">
+              <img src="/seva-qr.svg" width="132" height="132" alt="UPI QR" />
+              <span>{t('seva_scan')}</span>
+            </div>
           </>
         ) : (
           <p className="fb-note">{t('seva_soon')}</p>
