@@ -54,6 +54,16 @@ export default function Admin() {
     finally { setBusy(''); }
   };
 
+  const resetStats = async () => {
+    if (!window.confirm('Reset visits, users and seva counters to zero? Your requests & feedback are NOT affected.')) return;
+    setBusy('reset');
+    try {
+      await fetch('/api/admin/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-token': key }, body: JSON.stringify({ action: 'reset-stats' }) });
+      await load(key, view);
+    } catch {}
+    finally { setBusy(''); }
+  };
+
   if (!ready) return <div className="admin-wrap" />;
 
   if (!entered) {
@@ -99,9 +109,12 @@ export default function Admin() {
             <div className="tr-card"><b>{st.usersWeek != null ? st.usersWeek : '—'}</b><span>active this week</span></div>
             <div className="tr-card"><b>{st.visitsTotal}</b><span>total visits</span></div>
             <div className="tr-card"><b>{st.sevaCount}</b><span>seva taps</span></div>
-            <div className="tr-card gold"><b>₹{st.sevaSum}</b><span>seva intent</span></div>
+            <div className="tr-card gold"><b>₹{st.sevaSum}</b><span>tapped ₹ (not paid)</span></div>
           </div>
-          <div className="tr-sparkhead">Active users · last 7 days</div>
+          <div className="tr-sparkhead">
+            <span>Active users · last 7 days</span>
+            <button className="tr-reset" disabled={busy === 'reset'} onClick={resetStats} title="Reset all counters to zero (feedback is kept)">{busy === 'reset' ? 'Resetting…' : 'Reset counters'}</button>
+          </div>
           <div className="tr-spark">
             {st.last7.map((d) => (
               <div key={d.date} className="tr-bar" title={`${d.date}: ${d.users || 0} active users · ${d.visits} visits`}>
@@ -111,7 +124,7 @@ export default function Admin() {
               </div>
             ))}
           </div>
-          <p className="tr-note"><b>Unique users</b> = distinct devices (an anonymous id stored in each browser). <b>Active today / this week</b> = unique devices seen in that window. <b>Visits</b> = app opens. Same person on phone + laptop counts as 2, and clearing browser data starts a fresh id. Seva = amount taps (interest), not confirmed payments.</p>
+          <p className="tr-note"><b>Unique users</b> = distinct devices (an anonymous id stored in each browser). <b>Active today / this week</b> = unique devices seen in that window. <b>Visits</b> = app opens. Same person on phone + laptop counts as 2, and clearing browser data starts a fresh id. <b>Tapped ₹</b> = the total of amounts people tapped — an interest signal, <b>NOT money received</b>. Real payments only ever show in your bank / UPI app.</p>
         </div>
       )}
 

@@ -2,7 +2,7 @@
 // Admin-only. Gated by the shared ADMIN_TOKEN secret (x-admin-token header) —
 // not a login. GET lists submissions (active or ?view=archive) and auto-archives
 // feedback older than 30 days. POST performs archive / restore / delete.
-import { listFeedback, archiveItem, restoreItem, deleteItem, pruneOldFeedback, backend, counts, getStats } from '@/lib/feedbackStore';
+import { listFeedback, archiveItem, restoreItem, deleteItem, pruneOldFeedback, backend, counts, getStats, resetStats } from '@/lib/feedbackStore';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -54,6 +54,13 @@ export async function POST(request) {
   const id = String((body && body.id) || '').trim();
   const action = String((body && body.action) || '').trim();
   const area = body && body.area === 'archive' ? 'archive' : 'active';
+
+  // Reset the visit/user/seva counters (no id needed). Feedback is untouched.
+  if (action === 'reset-stats') {
+    try { await resetStats(); return Response.json({ ok: true }, { status: 200 }); }
+    catch (e) { console.error('[admin/feedback] reset failed:', (e && e.message) || e); return Response.json({ ok: false, error: 'server_error', message: String((e && e.message) || e) }, { status: 500 }); }
+  }
+
   if (!id || !action) return Response.json({ ok: false, error: 'missing' }, { status: 400 });
 
   try {
